@@ -129,6 +129,25 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 				}
 				return
 			}
+			newUser = models.User{}
+			config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&newUser)
+			if newUser.TGUserID != 0 {
+				config.DB.Model(&models.User{}).Where("tg_user_id = ?", update.Message.Chat.ID).Updates(models.User{
+					FirstName:  user.FirstName,
+					LastName:   user.LastName,
+					CFHandle:   user.Handle,
+					CFRating:   user.Rating,
+					TGUserName: update.Message.Chat.Username,
+				})
+				_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+					ChatID: update.Message.Chat.ID,
+					Text:   "Ma'lumotlaringiz yangilandi.",
+				})
+				if err != nil {
+					adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+				}
+				break
+			}
 			newUser = models.User{
 				FirstName:  user.FirstName,
 				LastName:   user.LastName,
@@ -152,14 +171,62 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 
 func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	msgTokens := strings.Split(update.Message.Text, " ")
-	if len(msgTokens) != 2 {
+	if len(msgTokens) > 2 {
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
 			ReplyParameters: &botModels.ReplyParameters{
 				ChatID:    update.Message.Chat.ID,
 				MessageID: update.Message.ID,
 			},
-			Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme 1500\n/gimme +100\n/gimme -200",
+			Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme\n/gimme 1500\n/gimme +100\n/gimme -200",
+		})
+		if err != nil {
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+		}
+		return
+	}
+	if len(msgTokens) == 1 {
+		user := models.User{}
+		config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&user)
+		if len(user.CFHandle) == 0 {
+			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: update.Message.Chat.ID,
+				ReplyParameters: &botModels.ReplyParameters{
+					ChatID:    update.Message.Chat.ID,
+					MessageID: update.Message.ID,
+				},
+				Text: "Botdan ro'yxatdan o'tmagansiz.",
+			})
+			if err != nil {
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+			}
+			return
+		}
+
+		rating := user.CFRating
+		rating = rating / 100 * 100
+		if rating < 800 || rating > 3500 {
+			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: update.Message.Chat.ID,
+				ReplyParameters: &botModels.ReplyParameters{
+					ChatID:    update.Message.Chat.ID,
+					MessageID: update.Message.ID,
+				},
+				Text: "Reyting [800,3500] oraliqda bo'lishi kerak",
+			})
+			if err != nil {
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+			}
+			return
+		}
+		problem := cf.GetRandomProblemWithRating(rating)
+		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.Message.Chat.ID,
+			ReplyParameters: &botModels.ReplyParameters{
+				ChatID:    update.Message.Chat.ID,
+				MessageID: update.Message.ID,
+			},
+			Text: "@" + update.Message.Chat.Username + " uchun masala: " + problem.Link,
 		})
 		if err != nil {
 			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
@@ -177,7 +244,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 					ChatID:    update.Message.Chat.ID,
 					MessageID: update.Message.ID,
 				},
-				Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme 1500\n/gimme +100\n/gimme -200",
+				Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme\n/gimme 1500\n/gimme +100\n/gimme -200",
 			})
 			if err != nil {
 				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
@@ -236,7 +303,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 					ChatID:    update.Message.Chat.ID,
 					MessageID: update.Message.ID,
 				},
-				Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme 1500\n/gimme +100\n/gimme -200",
+				Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme\n/gimme 1500\n/gimme +100\n/gimme -200",
 			})
 			if err != nil {
 				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)

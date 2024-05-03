@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 
@@ -14,9 +15,6 @@ import (
 )
 
 func main() {
-	db.Connect()
-	cf.GetAllProblems()
-
 	var cancel context.CancelFunc
 	config.Ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -24,7 +22,7 @@ func main() {
 	var err error
 	config.B, err = bot.New(config.BotToken, []bot.Option{}...)
 	if nil != err {
-		adminlog.Fatal(err.Error(), config.Ctx, config.B)
+		log.Fatal(err.Error())
 	}
 
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypePrefix, startHandler)
@@ -32,9 +30,13 @@ func main() {
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/standings", bot.MatchTypePrefix, standingsHandler)
 
+	db.Connect()
+	cf.GetAllProblems()
+
 	go dailyTaskSender(config.Ctx, config.B)
 	go statsUpdater()
 
 	adminlog.SendMessage("Bot started", config.Ctx, config.B)
+
 	config.B.Start(config.Ctx)
 }

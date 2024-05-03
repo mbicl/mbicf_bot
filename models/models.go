@@ -9,10 +9,10 @@ type User struct {
 	gorm.Model
 	FirstName  string
 	LastName   string
-	CFHandle   string `gorm:"unique"`
-	CFRating   int    `gorm:"default:0"`
-	TGUserName string `gorm:"unique"`
-	TGUserID   int64  `gorm:"unique"`
+	CFHandle   string
+	CFRating   int
+	TGUserName string
+	TGUserID   int64 `gorm:"unique"`
 
 	AttemptsCount int `gorm:"default:0"`
 	OKCount       int `gorm:"default:0"`
