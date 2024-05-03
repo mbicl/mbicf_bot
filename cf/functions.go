@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"strconv"
 
+	"github.com/mbicl/mbicf_bot/adminlog"
 	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
 	"github.com/mbicl/mbicf_bot/config"
 	"github.com/mbicl/mbicf_bot/models"
@@ -19,7 +20,8 @@ func UserAttemptStats(ProblemID, CFHandle string) (int, int) {
 		body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=111", cfmodels.BaseURL, CFHandle))
 		err := json.Unmarshal(body, &userStatus)
 		if err != nil {
-			log.Println("Error unmarshalling status for CF handle", CFHandle)
+			adminlog.SendMessage("Error unmarshalling status for CF handle "+CFHandle, config.Ctx, config.B)
+			return 0, 0
 		}
 		config.UserStatusMap[CFHandle] = userStatus
 	} else {
@@ -55,7 +57,7 @@ func GetAllProblems() {
 	problemSet := cfmodels.ProblemSet{}
 	err := json.Unmarshal(body, &problemSet)
 	if err != nil {
-		log.Fatal("Error unmarshalling problems (GetAllProblems).", err)
+		adminlog.Fatal("Error unmarshalling problems (GetAllProblems)."+err.Error(), config.Ctx, config.B)
 	}
 	for _, i := range problemSet.Result.Problems {
 		special := false
@@ -175,14 +177,14 @@ func UpdateTodaysTasks() {
 }
 
 func GetRandomProblem() *models.Problem {
-	problems := []models.Problem{}
+	problems := make([]models.Problem, 0)
 	config.DB.Find(&problems)
 	n := rand.Intn(len(problems))
 	return &problems[n]
 }
 
 func GetRandomProblemWithRating(rating int) *models.Problem {
-	problems := []models.Problem{}
+	problems := make([]models.Problem, 0)
 	config.DB.Where("rating = ?", rating).Find(&problems)
 	n := rand.Intn(len(problems))
 	return &problems[n]

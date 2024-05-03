@@ -1,9 +1,11 @@
 package config
 
 import (
+	"context"
 	"log"
 	"os"
 
+	"github.com/go-telegram/bot"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 
@@ -26,6 +28,8 @@ var (
 		"🔴Hard:         <a href=\"%s\">%s</a>"
 	LastCheckedTime = &models.LastCheckedTime{}
 	UserStatusMap   = make(map[string]cfmodels.UserStatus)
+	B               *bot.Bot
+	Ctx             context.Context
 )
 
 func init() {

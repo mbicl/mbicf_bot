@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 
 	"github.com/go-telegram/bot"
 
+	"github.com/mbicl/mbicf_bot/adminlog"
 	"github.com/mbicl/mbicf_bot/cf"
 	"github.com/mbicl/mbicf_bot/config"
 	"github.com/mbicl/mbicf_bot/db"
@@ -17,22 +17,24 @@ func main() {
 	db.Connect()
 	cf.GetAllProblems()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	var cancel context.CancelFunc
+	config.Ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	b, err := bot.New(config.BotToken, []bot.Option{}...)
+	var err error
+	config.B, err = bot.New(config.BotToken, []bot.Option{}...)
 	if nil != err {
-		log.Fatal(err.Error())
+		adminlog.Fatal(err.Error(), config.Ctx, config.B)
 	}
 
-	b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypePrefix, startHandler)
-	b.RegisterHandler(bot.HandlerTypeMessageText, "/handle", bot.MatchTypePrefix, userRegisterHandler)
-	b.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
-	b.RegisterHandler(bot.HandlerTypeMessageText, "/standings", bot.MatchTypePrefix, standingsHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypePrefix, startHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/handle", bot.MatchTypePrefix, userRegisterHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/standings", bot.MatchTypePrefix, standingsHandler)
 
-	go dailyTaskSender(ctx, b)
+	go dailyTaskSender(config.Ctx, config.B)
 	go statsUpdater()
 
-	log.Println("Bot started")
-	b.Start(ctx)
+	adminlog.SendMessage("Bot started", config.Ctx, config.B)
+	config.B.Start(config.Ctx)
 }

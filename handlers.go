@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-telegram/bot"
 	botModels "github.com/go-telegram/bot/models"
 
+	"github.com/mbicl/mbicf_bot/adminlog"
 	"github.com/mbicl/mbicf_bot/cf"
 	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
 	"github.com/mbicl/mbicf_bot/config"
@@ -20,13 +20,14 @@ import (
 )
 
 func defaultHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
-	ok, err := b.SendChatAction(ctx, &bot.SendChatActionParams{
+	_, err := b.SendChatAction(ctx, &bot.SendChatActionParams{
 		ChatID: update.Message.Chat.ID,
 		Action: botModels.ChatActionTyping,
 	})
 
-	if !ok {
-		log.Println(err)
+	if err != nil {
+		adminlog.SendMessage("Error sending chat action"+err.Error(), ctx, b)
+		return
 	}
 
 	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
@@ -35,18 +36,17 @@ func defaultHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	})
 
 	if err != nil {
-		log.Println(err)
+		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 	}
 }
 
 func startHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
-	// todo
 	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		Text:   "Assalomu alaykum",
 	})
 	if err != nil {
-		log.Println("Error sending message:", err)
+		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 	}
 }
 
@@ -58,7 +58,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 			Text:   "Noto'g'ri buyruq.\n/handle your_handle ko'rinishida yuboring",
 		})
 		if err != nil {
-			log.Println("Error sending message:", err)
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 		}
 		return
 	}
@@ -67,7 +67,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 	userInfo := cfmodels.UserInfo{}
 	err := json.Unmarshal(body, &userInfo)
 	if err != nil {
-		log.Println("Error unmarshalling user info:", err)
+		adminlog.SendMessage("Error unmarshalling user info: "+err.Error(), ctx, b)
 		return
 	}
 
@@ -77,7 +77,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 			Text:   "Bunday foydalanuvchi nomi codeforcesda mavjud emas.",
 		})
 		if err != nil {
-			log.Println("Error sending message:", err)
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 		}
 		return
 	}
@@ -90,7 +90,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 		Text:   problem.Link + " masalaga 60 soniya ichida kompilyatsiya xatoligi beradigan kod jo'nating.",
 	})
 	if err != nil {
-		log.Println("Error sending message:", err)
+		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 		return
 	}
 
@@ -103,7 +103,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 				Text:   "Vaqt tugadi, ulgurmadingiz.",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			break
 		}
@@ -111,7 +111,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 		userStatus := cfmodels.UserStatus{}
 		err = json.Unmarshal(body, &userStatus)
 		if err != nil {
-			log.Println("Error unmarshalling user status(userRegistration):", err)
+			adminlog.SendMessage("Error unmarshalling user status(userRegistration):"+err.Error(), ctx, b)
 			continue
 		}
 		submission := userStatus.Result[0]
@@ -125,7 +125,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 					Text:   "Ro'yxatdan o'tgan.",
 				})
 				if err != nil {
-					log.Println("Error sending message:", err)
+					adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 				}
 				return
 			}
@@ -143,7 +143,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 				Text:   "Muvaffaqiyatli ro'yxatdan o'tdingiz.",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			break
 		}
@@ -162,7 +162,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 			Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme 1500\n/gimme +100\n/gimme -200",
 		})
 		if err != nil {
-			log.Println("Error sending message:", err)
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 		}
 		return
 	}
@@ -170,7 +170,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	if ratingStr[0] == '+' || ratingStr[0] == '-' {
 		ratingDelta, err := strconv.Atoi(ratingStr)
 		if err != nil {
-			log.Println("Error converting gimme rating to int:", err)
+			adminlog.SendMessage("Error converting gimme rating to int:"+err.Error(), ctx, b)
 			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: update.Message.Chat.ID,
 				ReplyParameters: &botModels.ReplyParameters{
@@ -180,7 +180,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme 1500\n/gimme +100\n/gimme -200",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			return
 		}
@@ -196,7 +196,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				Text: "Botdan ro'yxatdan o'tmagansiz.",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			return
 		}
@@ -213,7 +213,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				Text: "Reyting [800,3500] oraliqda bo'lishi kerak",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			return
 		}
@@ -229,7 +229,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	} else {
 		rating, err := strconv.Atoi(ratingStr)
 		if err != nil {
-			log.Println("Error converting gimme rating to int:", err)
+			adminlog.SendMessage("Error converting gimme rating to int:"+err.Error(), ctx, b)
 			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: update.Message.Chat.ID,
 				ReplyParameters: &botModels.ReplyParameters{
@@ -239,7 +239,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				Text: "Noto'g'ri format.\n Foydalanish uchun misollar:\n/gimme 1500\n/gimme +100\n/gimme -200",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			return
 		}
@@ -254,7 +254,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				Text: "Reyting [800,3500] oraliqda bo'lishi kerak",
 			})
 			if err != nil {
-				log.Println("Error sending message:", err)
+				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
 			return
 		}
@@ -267,11 +267,14 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 			},
 			Text: "@" + update.Message.Chat.Username + " uchun masala: " + problem.Link,
 		})
+		if err != nil {
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+		}
 	}
 }
 
 func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
-	users := []models.User{}
+	users := make([]models.User, 0)
 	config.DB.Order("rating desc, cf_rating desc").Limit(20).Find(&users)
 	msg := "Standings:\n"
 
@@ -286,7 +289,7 @@ func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update)
 		Text:   msg,
 	})
 	if err != nil {
-		log.Println("Error sending message:", err)
+		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 	}
 }
 
@@ -303,12 +306,12 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 		}
 
 		cf.UpdateTodaysTasks()
-		ok, err := b.SendChatAction(ctx, &bot.SendChatActionParams{
+		_, err := b.SendChatAction(ctx, &bot.SendChatActionParams{
 			ChatID: config.GroupID,
 			Action: botModels.ChatActionTyping,
 		})
-		if !ok {
-			log.Println(err)
+		if err != nil {
+			adminlog.SendMessage("Error sending chat action: "+err.Error(), ctx, b)
 		}
 		msg := fmt.Sprintf(
 			config.FMessage,
@@ -332,7 +335,8 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 			ParseMode: botModels.ParseModeHTML,
 		})
 		if err != nil {
-			log.Println("Can't send message", err)
+			adminlog.SendMessage("Error sending daily task: "+err.Error(), ctx, b)
+			return
 		}
 		sent = true
 	}
@@ -341,6 +345,7 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 func statsUpdater() {
 	for {
 		time.Sleep(100 * time.Second)
+
 		users := make([]models.User, 0)
 		config.DB.Find(&users)
 		usedProblems := make([]models.UsedProblem, 0)
