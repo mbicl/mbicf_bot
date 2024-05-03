@@ -12,12 +12,17 @@ import (
 )
 
 var (
-	BotToken        string
-	DB              *gorm.DB
-	Month           = []string{"", "yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"}
-	TodaysTasks     = &models.DailyTasks{}
-	GroupID         = -1002120642025 // todo change to cf group id when releasing
-	FMessage        = "Easy: %s\nMedium: %s\nAdvanced: %s\nHard: %s"
+	BotToken    string
+	DB          *gorm.DB
+	Month       = []string{"", "yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"}
+	TodaysTasks = &models.DailyTasks{}
+	GroupID     = -1002120642025 // todo change to cf group id when releasing
+	FMessage    = "#dailytask #%d%s\n" +
+		"%d-%s uchun kunlik masalalar.\n" +
+		"🟢Easy:         <a href=\"%s\">%s</a>\n" +
+		"🟡Medium:    <a href=\"%s\">%s</a>\n" +
+		"🟠Advanced: <a href=\"%s\">%s</a>\n" +
+		"🔴Hard:         <a href=\"%s\">%s</a>"
 	LastCheckedTime = &models.LastCheckedTime{}
 	UserStatusMap   = make(map[string]cfmodels.UserStatus)
 )

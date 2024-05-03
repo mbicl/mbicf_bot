@@ -43,7 +43,7 @@ func startHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	// todo
 	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
-		Text:   "Hello",
+		Text:   "Assalomu alaykum",
 	})
 	if err != nil {
 		log.Println("Error sending message:", err)
@@ -51,7 +51,6 @@ func startHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 }
 
 func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
-	// todo
 	splittedMessage := strings.Split(update.Message.Text, " ")
 	if len(splittedMessage) != 2 {
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -274,7 +273,7 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	users := []models.User{}
 	config.DB.Order("rating desc, cf_rating desc").Limit(20).Find(&users)
-	msg := ""
+	msg := "Standings:\n"
 
 	for i, user := range users {
 		msg += fmt.Sprintf("%2d. %10s (%10s) - %4d (%4d)\n", i, user.FirstName, user.CFHandle, user.Rating, user.CFRating)
@@ -296,7 +295,7 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 
 	for {
 		time.Sleep(60 * time.Second)
-		if sent || time.Now().Hour() != 8 {
+		if sent || time.Now().Hour() != 20 {
 			continue
 		}
 		if time.Now().Hour() == 0 {
@@ -313,15 +312,24 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 		}
 		msg := fmt.Sprintf(
 			config.FMessage,
+			time.Now().Day(),
+			config.Month[time.Now().Month()],
+			time.Now().Day(),
+			config.Month[time.Now().Month()],
 			config.TodaysTasks.Easy.Link,
+			config.TodaysTasks.Easy.Name,
 			config.TodaysTasks.Medium.Link,
+			config.TodaysTasks.Medium.Name,
 			config.TodaysTasks.Advanced.Link,
+			config.TodaysTasks.Advanced.Name,
 			config.TodaysTasks.Hard.Link,
+			config.TodaysTasks.Hard.Name,
 		)
 
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: config.GroupID,
-			Text:   msg,
+			ChatID:    config.GroupID,
+			Text:      msg,
+			ParseMode: botModels.ParseModeHTML,
 		})
 		if err != nil {
 			log.Println("Can't send message", err)
