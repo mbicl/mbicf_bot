@@ -12,11 +12,11 @@ import (
 	"github.com/go-telegram/bot"
 	botModels "github.com/go-telegram/bot/models"
 
-	"mbicf_bot/cf"
-	cfmodels "mbicf_bot/cf/models"
-	"mbicf_bot/config"
-	"mbicf_bot/models"
-	"mbicf_bot/utils"
+	"github.com/mbicl/mbicf_bot/cf"
+	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
+	"github.com/mbicl/mbicf_bot/config"
+	"github.com/mbicl/mbicf_bot/models"
+	"github.com/mbicl/mbicf_bot/utils"
 )
 
 func defaultHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {

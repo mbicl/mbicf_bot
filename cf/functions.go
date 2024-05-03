@@ -7,10 +7,10 @@ import (
 	"math/rand"
 	"strconv"
 
-	cfmodels "mbicf_bot/cf/models"
-	"mbicf_bot/config"
-	"mbicf_bot/models"
-	"mbicf_bot/utils"
+	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
+	"github.com/mbicl/mbicf_bot/config"
+	"github.com/mbicl/mbicf_bot/models"
+	"github.com/mbicl/mbicf_bot/utils"
 )
 
 func UserAttemptStats(ProblemID, CFHandle string) (int, int) {

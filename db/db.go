@@ -6,8 +6,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"mbicf_bot/config"
-	"mbicf_bot/models"
+	"github.com/mbicl/mbicf_bot/config"
+	"github.com/mbicl/mbicf_bot/models"
 )
 
 func Connect() {

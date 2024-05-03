@@ -7,8 +7,8 @@ import (
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 
-	cfmodels "mbicf_bot/cf/models"
-	"mbicf_bot/models"
+	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
+	"github.com/mbicl/mbicf_bot/models"
 )
 
 var (

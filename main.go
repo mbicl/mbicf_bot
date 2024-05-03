@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-telegram/bot"
 
-	"mbicf_bot/cf"
-	"mbicf_bot/config"
-	"mbicf_bot/db"
+	"github.com/mbicl/mbicf_bot/cf"
+	"github.com/mbicl/mbicf_bot/config"
+	"github.com/mbicl/mbicf_bot/db"
 )
 
 func main() {
