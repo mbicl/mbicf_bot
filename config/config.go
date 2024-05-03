@@ -17,6 +17,7 @@ var (
 	Month       = []string{"", "yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"}
 	TodaysTasks = &models.DailyTasks{}
 	GroupID     = -1002120642025 // todo change to cf group id when releasing
+	CFGroupID   = -1001524140542
 	FMessage    = "#dailytask #%d%s\n" +
 		"%d-%s uchun kunlik masalalar.\n" +
 		"🟢Easy:         <a href=\"%s\">%s</a>\n" +

@@ -295,7 +295,7 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 
 	for {
 		time.Sleep(60 * time.Second)
-		if sent || time.Now().Hour() != 20 {
+		if sent || time.Now().Hour() != 8 {
 			continue
 		}
 		if time.Now().Hour() == 0 {
