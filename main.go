@@ -24,7 +24,9 @@ func main() {
 	if nil != err {
 		log.Fatal(err.Error())
 	}
-
+	config.B.DeleteWebhook(config.Ctx, &bot.DeleteWebhookParams{
+		DropPendingUpdates: true,
+	})
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypePrefix, startHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/handle", bot.MatchTypePrefix, userRegisterHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
