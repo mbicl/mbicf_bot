@@ -3,3 +3,5 @@ qodana.yaml
 .idea
 .env
 mbicf_bot
+fly.toml
+Dockerfile
