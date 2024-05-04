@@ -41,6 +41,9 @@ func defaultHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 }
 
 func startHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	if update.Message.Chat.Type != "private" {
+		return
+	}
 	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		Text:   "Assalomu alaykum",
@@ -51,6 +54,20 @@ func startHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 }
 
 func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	if update.Message.Chat.Type != "private" {
+		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.Message.Chat.ID,
+			ReplyParameters: &botModels.ReplyParameters{
+				ChatID:    update.Message.Chat.ID,
+				MessageID: update.Message.ID,
+			},
+			Text: "Botga shaxsiy xabar jo'natish orqali ro'yxatdan o'tishingiz mumkin.",
+		})
+		if err != nil {
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+		}
+		return
+	}
 	splittedMessage := strings.Split(update.Message.Text, " ")
 	if len(splittedMessage) != 2 {
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -187,7 +204,11 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	}
 	if len(msgTokens) == 1 {
 		user := models.User{}
-		config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&user)
+		if update.Message.Chat.Type != "private" {
+			config.DB.Where("tg_user_id = ?", update.Message.From.ID).First(&user)
+		} else {
+			config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&user)
+		}
 		if len(user.CFHandle) == 0 {
 			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: update.Message.Chat.ID,
@@ -252,7 +273,11 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 			return
 		}
 		user := models.User{}
-		config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&user)
+		if update.Message.Chat.Type != "private" {
+			config.DB.Where("tg_user_id = ?", update.Message.From.ID).First(&user)
+		} else {
+			config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&user)
+		}
 		if len(user.CFHandle) == 0 {
 			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: update.Message.Chat.ID,
