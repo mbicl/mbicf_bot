@@ -1,14 +1,9 @@
-ARG GO_VERSION=1.22.2
-FROM golang:${GO_VERSION}-bookworm as builder
+FROM golang:1.22.2
 
-WORKDIR /usr/src/app
+WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY . .
-RUN go build -v -o /run-app .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /run-app .
 
-
-FROM debian:bookworm
-
-COPY --from=builder /run-app /usr/local/bin/
-CMD ["run-app"]
+CMD ["./run-app"]
