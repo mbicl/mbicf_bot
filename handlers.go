@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -125,14 +126,21 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 			break
 		}
 		body := utils.HTTPGet(cfmodels.BaseURL + "user.status?handle=" + user.Handle + "&from=1&count=1")
+		if body == nil || len(body) == 0 {
+			adminlog.SendMessage("Error on getting status for user "+user.Handle, ctx, b)
+			continue
+		}
 		userStatus := cfmodels.UserStatus{}
 		err = json.Unmarshal(body, &userStatus)
 		if err != nil {
 			adminlog.SendMessage("Error unmarshalling user status(userRegistration):"+err.Error(), ctx, b)
 			continue
 		}
+		if len(userStatus.Result) == 0 {
+			continue
+		}
 		submission := userStatus.Result[0]
-		if strconv.Itoa(submission.Problem.ContestID)+submission.Problem.Index == problem.ProblemID &&
+		if strconv.Itoa(submission.Problem.ContestID)+submission.Problem.Index == problem.CFID &&
 			submission.Verdict == "COMPILATION_ERROR" {
 			newUser := models.User{}
 			config.DB.Where("cf_handle = ?", user.Handle).First(&newUser)
@@ -181,6 +189,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 			if err != nil {
 				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
 			}
+			adminlog.SendMessage("Yangi foydalanuvchi: "+newUser.String(), ctx, b)
 			break
 		}
 	}
@@ -373,7 +382,7 @@ func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update)
 	for i, user := range users {
 		msg += fmt.Sprintf("%2d. %10s (%10s) - %4d (%4d)\n", i, user.FirstName, user.CFHandle, user.Rating, user.CFRating)
 	}
-	if len(msg) == 0 {
+	if msg == "Standings:\n" {
 		msg = "Hozircha bo'sh."
 	}
 	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -386,146 +395,217 @@ func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update)
 }
 
 func dailyTaskSender(ctx context.Context, b *bot.Bot) {
-	sent := false
+	cf.UpdateTodaysTasks()
+	err := config.DB.Save(&config.TodaysTasks).Error
+	if err != nil {
+		adminlog.SendMessage("Error while updating daily tasks: "+err.Error(), ctx, b)
+		return
+	}
+	adminlog.SendMessage("Daily tasks updated: \n"+config.TodaysTasks.String(), ctx, b)
 
-	for {
-		time.Sleep(60 * time.Second)
-		if sent || time.Now().Hour() != 8 {
-			continue
-		}
-		if time.Now().Hour() == 0 {
-			sent = false
-		}
+	_, err = b.SendChatAction(ctx, &bot.SendChatActionParams{
+		ChatID: config.GroupID,
+		Action: botModels.ChatActionTyping,
+	})
+	if err != nil {
+		adminlog.SendMessage("Error sending chat action: "+err.Error(), ctx, b)
+	}
+	msg := fmt.Sprintf(
+		config.FMessage,
+		time.Now().Day(),
+		config.Month[time.Now().Month()],
+		time.Now().Day(),
+		config.Month[time.Now().Month()],
+		config.TodaysTasks.Easy.Link,
+		config.TodaysTasks.Easy.Name,
+		config.TodaysTasks.Medium.Link,
+		config.TodaysTasks.Medium.Name,
+		config.TodaysTasks.Advanced.Link,
+		config.TodaysTasks.Advanced.Name,
+		config.TodaysTasks.Hard.Link,
+		config.TodaysTasks.Hard.Name,
+	)
 
-		cf.UpdateTodaysTasks()
-		_, err := b.SendChatAction(ctx, &bot.SendChatActionParams{
-			ChatID: config.GroupID,
-			Action: botModels.ChatActionTyping,
-		})
-		if err != nil {
-			adminlog.SendMessage("Error sending chat action: "+err.Error(), ctx, b)
-		}
-		msg := fmt.Sprintf(
-			config.FMessage,
-			time.Now().Day(),
-			config.Month[time.Now().Month()],
-			time.Now().Day(),
-			config.Month[time.Now().Month()],
-			config.TodaysTasks.Easy.Link,
-			config.TodaysTasks.Easy.Name,
-			config.TodaysTasks.Medium.Link,
-			config.TodaysTasks.Medium.Name,
-			config.TodaysTasks.Advanced.Link,
-			config.TodaysTasks.Advanced.Name,
-			config.TodaysTasks.Hard.Link,
-			config.TodaysTasks.Hard.Name,
-		)
-
-		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    config.GroupID,
-			Text:      msg,
-			ParseMode: botModels.ParseModeHTML,
-		})
-		if err != nil {
-			adminlog.SendMessage("Error sending daily task: "+err.Error(), ctx, b)
-			return
-		}
-		sent = true
+	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    config.GroupID,
+		Text:      msg,
+		ParseMode: botModels.ParseModeHTML,
+	})
+	if err != nil {
+		adminlog.SendMessage("Error sending daily task: "+err.Error(), ctx, b)
+		return
 	}
 }
 
 func statsUpdater() {
-	for {
-		time.Sleep(100 * time.Second)
+	users := make([]models.User, 0)
+	config.DB.Find(&users)
+	usedProblems := make([]models.UsedProblem, 0)
 
-		users := make([]models.User, 0)
-		config.DB.Find(&users)
-		usedProblems := make([]models.UsedProblem, 0)
+	config.DB.Find(&usedProblems)
+	//config.UserStatusMap = make(map[string]cfmodels.UserStatus)
 
-		config.DB.Find(&usedProblems)
-		config.DB.First(&config.LastCheckedTime)
-		config.LastCheckedTime.UnixTime = time.Now().Unix()
-		config.DB.Save(&config.LastCheckedTime)
+	updateCheckedTime := true
+	for _, user := range users {
+		newAttempts := cf.GetLatestAttempts(user.CFHandle)
+		if len(newAttempts) == 0 {
+			continue
+		}
 
-		config.UserStatusMap = make(map[string]cfmodels.UserStatus)
+		userRatingDelta := 0
+		countEasyDelta := 0
+		countMediumDelta := 0
+		countAdvancedDelta := 0
+		countHardDelta := 0
 
-		for _, user := range users {
-			userRatingDelta := 0
-			countEasyDelta := 0
-			countMediumDelta := 0
-			countAdvancedDelta := 0
-			countHardDelta := 0
-			attemptCountDelta := 0
-			OKCountDelta := 0
-			SolvedCountDelta := 0
+		attemptCountDelta := 0
+		OKCountDelta := 0
+		SolvedCountDelta := 0
 
-			for _, usedProblem := range usedProblems {
-				attemptCount, OK := cf.UserAttemptStats(usedProblem.ProblemID, user.CFHandle)
-				if attemptCount == 0 {
-					continue
-				}
-
-				attemptCountDelta += attemptCount
-				OKCountDelta += OK
-
-				usedProblem.AttemptsCount += attemptCount
-				usedProblem.OKCount += OK
-				isAttempted := false
-				isSolved := false
-				for _, i := range usedProblem.AttemptedUsers {
-					if i.CFHandle == user.CFHandle {
-						isAttempted = true
-					}
-				}
-				for _, i := range usedProblem.SolvedUsers {
-					if i.CFHandle == user.CFHandle {
-						isSolved = true
-					}
-				}
-				if !isAttempted {
-					usedProblem.AttemptedUsers = append(usedProblem.AttemptedUsers, &user)
-				}
-				if OK > 0 && !isSolved {
-					usedProblem.SolvedUsers = append(usedProblem.SolvedUsers, &user)
-					SolvedCountDelta++
-				}
-
-				config.DB.Save(&usedProblem)
-
-				if OK == 0 {
-					continue
-				}
-				if usedProblem.Rating > 700 && usedProblem.Rating < 1100 {
-					countEasyDelta++
-				}
-				if usedProblem.Rating > 1000 && usedProblem.Rating < 1600 {
-					countMediumDelta++
-				}
-				if usedProblem.Rating > 1500 && usedProblem.Rating < 2100 {
-					countAdvancedDelta++
-				}
-				if usedProblem.Rating > 2000 {
-					countHardDelta++
-				}
-				if usedProblem.ProblemID == config.TodaysTasks.Easy.ProblemID ||
-					usedProblem.ProblemID == config.TodaysTasks.Medium.ProblemID ||
-					usedProblem.ProblemID == config.TodaysTasks.Advanced.ProblemID ||
-					usedProblem.ProblemID == config.TodaysTasks.Hard.ProblemID {
-					userRatingDelta += max(1, (usedProblem.Rating-user.Rating+50)/100*2)
+		userAttempts := make([]models.Attempt, 0)
+		err := config.DB.
+			Model(&models.Attempt{}).
+			Preload("User").
+			Preload("UsedProblem").
+			Where("user_id = ?", user.ID).
+			Find(&userAttempts).
+			Error
+		if err != nil {
+			adminlog.SendMessage(fmt.Sprintf("Error getting user %s attempts from DB: %s", user.CFHandle, err.Error()), config.Ctx, config.B)
+		}
+		for _, usedProblem := range usedProblems {
+			isSolved := false
+			for _, userAttempt := range userAttempts {
+				if userAttempt.UsedProblem.CFID == usedProblem.CFID && userAttempt.Verdict == "OK" {
+					isSolved = true
+					break
 				}
 			}
-			if attemptCountDelta == 0 {
+			for _, newAttempt := range newAttempts {
+				if newAttempt.Verdict == "TESTING" {
+					updateCheckedTime = false
+					continue
+				}
+				if newAttempt.UsedProblem.CFID == usedProblem.CFID {
+					usedProblem.AttemptsCount++
+					attemptCountDelta++
+					if newAttempt.Verdict == "OK" {
+						usedProblem.OKCount++
+						OKCountDelta++
+						if !isSolved {
+							SolvedCountDelta++
+							if usedProblem.Rating > 700 && usedProblem.Rating < 1100 {
+								countEasyDelta++
+							}
+							if usedProblem.Rating > 1000 && usedProblem.Rating < 1600 {
+								countMediumDelta++
+							}
+							if usedProblem.Rating > 1500 && usedProblem.Rating < 2100 {
+								countAdvancedDelta++
+							}
+							if usedProblem.Rating > 2000 {
+								countHardDelta++
+							}
+							if usedProblem.CFID == config.TodaysTasks.Easy.CFID ||
+								usedProblem.CFID == config.TodaysTasks.Medium.CFID ||
+								usedProblem.CFID == config.TodaysTasks.Advanced.CFID ||
+								usedProblem.CFID == config.TodaysTasks.Hard.CFID {
+								delta := max(1, (usedProblem.Rating-user.CFRating+50)/100*2)
+								fmt.Printf("delta of user %s for problem %s is %d\n", user.CFHandle, usedProblem.CFID, delta)
+								userRatingDelta += delta
+							}
+							isSolved = true
+						}
+					}
+				}
+			}
+			err := config.DB.Save(&usedProblem).Error
+			if err != nil {
+				adminlog.SendMessage("Error on updating used problem stats: "+err.Error(), config.Ctx, config.B)
+			}
+		}
+
+		for _, newAttempt := range newAttempts {
+			if newAttempt.Verdict == "TESTING" {
 				continue
 			}
-			user.Rating += userRatingDelta
-			user.SolvedCount += SolvedCountDelta
-			user.OKCount += OKCountDelta
-			user.AttemptsCount += attemptCountDelta
-			user.CountEasy += countEasyDelta
-			user.CountMedium += countMediumDelta
-			user.CountAdvanced += countAdvancedDelta
-			user.CountHard += countHardDelta
-			config.DB.Save(&user)
+			for _, usedProblem := range usedProblems {
+				if newAttempt.UsedProblem.CFID != usedProblem.CFID {
+					continue
+				}
+				newAttempt.User = user
+				newAttempt.UserID = user.ID
+				newAttempt.UsedProblem = usedProblem
+				newAttempt.UsedProblemID = usedProblem.ID
+				err = config.DB.Create(&newAttempt).Error
+				if err != nil {
+					adminlog.SendMessage(fmt.Sprintf("Error on creating new attempt for user %s: %s", user.CFHandle, err.Error()), config.Ctx, config.B)
+				}
+				break
+			}
+		}
+
+		if attemptCountDelta == 0 {
+			continue
+		}
+		user.Rating += userRatingDelta
+		user.SolvedCount += SolvedCountDelta
+		user.OKCount += OKCountDelta
+		user.AttemptsCount += attemptCountDelta
+		user.CountEasy += countEasyDelta
+		user.CountMedium += countMediumDelta
+		user.CountAdvanced += countAdvancedDelta
+		user.CountHard += countHardDelta
+		fmt.Printf("Rating delta for %s: %d\n", user.CFHandle, userRatingDelta)
+		config.DB.Save(&user)
+		if updateCheckedTime {
+			config.DB.First(&config.LastCheckedTime)
+			config.LastCheckedTime.UnixTime = time.Now().Unix()
+			config.DB.Save(&config.LastCheckedTime)
 		}
 	}
+	log.Println("Stats updated successfully")
+}
+
+func updateUsersData() {
+	users := make([]models.User, 0)
+	err := config.DB.Find(&users).Error
+	if err != nil {
+		adminlog.SendMessage("Error on finding all users while updating users data: "+err.Error(), config.Ctx, config.B)
+		return
+	}
+	updated := make([]string, 0)
+	notUpdated := make([]string, 0)
+	for _, user := range users {
+		body := utils.HTTPGet(cfmodels.BaseURL + "user.info?handles=" + user.CFHandle)
+		if body == nil || len(body) == 0 {
+			adminlog.SendMessage("Error getting user info while updating users data: "+user.CFHandle, config.Ctx, config.B)
+			notUpdated = append(notUpdated, user.CFHandle)
+			continue
+		}
+		res := cfmodels.UserInfo{}
+		err = json.Unmarshal(body, &res)
+		if err != nil {
+			adminlog.SendMessage("Error while unmarshaling user info: "+user.CFHandle+" "+err.Error(), config.Ctx, config.B)
+			notUpdated = append(notUpdated, user.CFHandle)
+			continue
+		}
+		if len(res.Result) == 0 {
+			adminlog.SendMessage("No such codeforces user: "+user.CFHandle, config.Ctx, config.B)
+			notUpdated = append(notUpdated, user.CFHandle)
+			continue
+		}
+		userInfo := res.Result[0]
+		user.CFRating = userInfo.Rating
+		err = config.DB.Save(&user).Error
+		if err != nil {
+			adminlog.SendMessage("Error while updating users data: "+user.CFHandle+" "+err.Error(), config.Ctx, config.B)
+			notUpdated = append(notUpdated, user.CFHandle)
+			continue
+		}
+		updated = append(updated, user.CFHandle)
+	}
+	updatedStr := strings.Join(updated, ",")
+	notUpdatedStr := strings.Join(notUpdated, ",")
+	adminlog.SendMessage(fmt.Sprintf("Updated: %s\nNot updated: %s", updatedStr, notUpdatedStr), config.Ctx, config.B)
 }

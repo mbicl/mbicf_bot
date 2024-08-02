@@ -1,6 +1,8 @@
 package models
 
 import (
+	"fmt"
+
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
@@ -24,36 +26,114 @@ type User struct {
 	CountHard     int `gorm:"default:0"`
 }
 
+func (u User) String() string {
+	res := fmt.Sprintf(
+		"User{\n\tID: %d\n\tName: %s\n\tCF Handle: %s\n\tCF Rating: %d\n\tTG Username: %s\n\tAttempts: %d\n\tAccepted: %d\n\tSolved: %d\n\tRating: %d\n}",
+		u.ID,
+		u.FirstName+" "+u.LastName,
+		u.CFHandle,
+		u.CFRating,
+		u.TGUserName,
+		u.AttemptsCount,
+		u.OKCount,
+		u.SolvedCount,
+		u.Rating,
+	)
+	return res
+}
+
+type Attempt struct {
+	gorm.Model
+	User          User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;foreignKey:UserID"`
+	UserID        uint
+	UsedProblem   UsedProblem `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;foreignKey:UsedProblemID"`
+	UsedProblemID uint
+	Verdict       string
+}
+
+func (a Attempt) String() string {
+	res := fmt.Sprintf(
+		"Attempt{\n\tUser: %s\n\tUsedProblem: %s\n\tVerdict: %s\n}",
+		a.User.String(),
+		a.UsedProblem.String(),
+		a.Verdict,
+	)
+	return res
+}
+
 type Problem struct {
 	gorm.Model
-	ProblemID string `gorm:"unique"`
-	Link      string
-	Name      string
-	Tags      pq.StringArray `gorm:"type:text[]"`
-	Rating    int
-	Points    float32
+	CFID   string `gorm:"unique"`
+	Link   string
+	Name   string
+	Tags   pq.StringArray `gorm:"type:text[]"`
+	Rating int
+	Points float32
+}
+
+func (p Problem) String() string {
+	res := fmt.Sprintf(
+		"Problem{\n\tID: %d\n\tCF ID: %s\n\tLink: %s\n\tName: %s\n\tRating: %d\n\tPoints: %f\n}",
+		p.ID,
+		p.CFID,
+		p.Link,
+		p.Name,
+		p.Rating,
+		p.Points,
+	)
+	return res
 }
 
 type UsedProblem struct {
 	gorm.Model
-	ProblemID      string `gorm:"unique"`
-	Link           string
-	Name           string
-	Tags           pq.StringArray `gorm:"type:text[]"`
-	Rating         int
-	Points         float32
-	AttemptsCount  int
-	SolvedCount    int
-	OKCount        int
-	AttemptedUsers []*User `gorm:"many2many:user_attempted_problems;"`
-	SolvedUsers    []*User `gorm:"many2many:user_solved_problems;"`
+	CFID          string `gorm:"unique"`
+	Link          string
+	Name          string
+	Tags          pq.StringArray `gorm:"type:text[]"`
+	Rating        int
+	Points        float32
+	AttemptsCount int
+	SolvedCount   int
+	OKCount       int
+}
+
+func (u UsedProblem) String() string {
+	res := fmt.Sprintf(
+		"UsedProblem{\n\tID: %d\n\tCF ID: %s\n\tLink: %s\n\tName: %s\n\tRating: %d\n\tPoints: %f\n\tAttempts: %d\n\tAccepted: %d\n\tSolved: %d\n}",
+		u.ID,
+		u.CFID,
+		u.Link,
+		u.Name,
+		u.Rating,
+		u.Points,
+		u.AttemptsCount,
+		u.OKCount,
+		u.SolvedCount,
+	)
+	return res
 }
 
 type DailyTasks struct {
-	Easy     Problem
-	Medium   Problem
-	Advanced Problem
-	Hard     Problem
+	gorm.Model
+	Easy       Problem `gorm:"foreignKey:EasyID"`
+	EasyID     uint
+	Medium     Problem `gorm:"foreignKey:MediumID"`
+	MediumID   uint
+	Advanced   Problem `gorm:"foreignKey:AdvancedID"`
+	AdvancedID uint
+	Hard       Problem `gorm:"foreignKey:HardID"`
+	HardID     uint
+}
+
+func (d DailyTasks) String() string {
+	res := fmt.Sprintf(
+		"Daily Tasks {\n\tEasy: %s(%d)\n\tMedium: %s(%d)\n\tAdvanced: %s(%d)\n\tHard: %s(%d)\n}\n",
+		d.Easy.CFID, d.EasyID,
+		d.Medium.CFID, d.MediumID,
+		d.Advanced.CFID, d.AdvancedID,
+		d.Hard.CFID, d.HardID,
+	)
+	return res
 }
 
 type LastCheckedTime struct {

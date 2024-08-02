@@ -12,11 +12,13 @@ func HTTPGet(url string) []byte {
 	resp, err := http.Get(url)
 	if err != nil {
 		adminlog.SendMessage("HTTPGet error: "+err.Error(), config.Ctx, config.B)
+		return nil
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		adminlog.SendMessage("Error on reading response body (HTTPGet function):"+err.Error(), config.Ctx, config.B)
+		return nil
 	}
 	return body
 }

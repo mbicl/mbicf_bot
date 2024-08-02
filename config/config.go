@@ -2,12 +2,13 @@ package config
 
 import (
 	"context"
+	"log"
 	"os"
 
 	"github.com/go-telegram/bot"
+	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 
-	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
 	"github.com/mbicl/mbicf_bot/models"
 )
 
@@ -25,15 +26,15 @@ var (
 		"🟠Advanced: <a href=\"%s\">%s</a>\n" +
 		"🔴Hard:         <a href=\"%s\">%s</a>"
 	LastCheckedTime = &models.LastCheckedTime{}
-	UserStatusMap   = make(map[string]cfmodels.UserStatus)
-	B               *bot.Bot
-	Ctx             context.Context
+	//UserStatusMap   = make(map[string]cfmodels.UserStatus)
+	B   *bot.Bot
+	Ctx context.Context
 )
 
 func init() {
-	//err := godotenv.Load(".env")
-	//if err != nil {
-	//	log.Fatal("Error loading .env file")
-	//}
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	BotToken = os.Getenv("BOT_TOKEN")
 }

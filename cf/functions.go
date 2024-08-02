@@ -14,38 +14,33 @@ import (
 	"github.com/mbicl/mbicf_bot/utils"
 )
 
-func UserAttemptStats(ProblemID, CFHandle string) (int, int) {
+func GetLatestAttempts(CFHandle string) []models.Attempt {
 	userStatus := cfmodels.UserStatus{}
-	if _, ok := config.UserStatusMap[CFHandle]; !ok {
-		body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=111", cfmodels.BaseURL, CFHandle))
-		err := json.Unmarshal(body, &userStatus)
-		if err != nil {
-			adminlog.SendMessage("Error unmarshalling status for CF handle "+CFHandle, config.Ctx, config.B)
-			return 0, 0
-		}
-		config.UserStatusMap[CFHandle] = userStatus
-	} else {
-		userStatus = config.UserStatusMap[CFHandle]
+	//if _, ok := config.UserStatusMap[CFHandle]; !ok {
+	body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=111", cfmodels.BaseURL, CFHandle))
+	err := json.Unmarshal(body, &userStatus)
+	if err != nil {
+		adminlog.SendMessage("Error unmarshalling status for CF handle "+CFHandle, config.Ctx, config.B)
+		return []models.Attempt{}
 	}
+	//	config.UserStatusMap[CFHandle] = userStatus
+	//} else {
+	//	userStatus = config.UserStatusMap[CFHandle]
+	//}
 
-	attemptCount, OK := 0, 0
+	newAttempts := make([]models.Attempt, 0)
 	for _, i := range userStatus.Result {
 		if i.CreationTimeSeconds < config.LastCheckedTime.UnixTime {
 			break
 		}
-		if strconv.Itoa(i.Problem.ContestID)+i.Problem.Index == ProblemID {
-			attemptCount++
-			if i.Verdict == "OK" {
-				OK++
-			}
-		}
+		newAttempts = append(newAttempts, models.Attempt{Verdict: i.Verdict, User: models.User{CFHandle: CFHandle}, UsedProblem: models.UsedProblem{CFID: strconv.Itoa(i.Problem.ContestID) + i.Problem.Index}})
 	}
-	return attemptCount, OK
+	return newAttempts
 }
 
 func IsUsed(ProblemID string) bool {
 	problem := models.UsedProblem{}
-	config.DB.Where("problem_id = ?", ProblemID).First(&problem)
+	config.DB.Where("cf_id = ?", ProblemID).First(&problem)
 	if problem.Link != "" {
 		return true
 	}
@@ -71,11 +66,11 @@ func GetAllProblems() {
 		}
 		problem := models.Problem{}
 		pid := strconv.Itoa(i.ContestID) + i.Index
-		config.DB.Where("problem_id = ?", pid).First(&problem)
+		config.DB.Where("cf_id = ?", pid).First(&problem)
 		if problem.Link != "" {
 			continue
 		}
-		problem.ProblemID = pid
+		problem.CFID = pid
 		problem.Link = cfmodels.ProblemsURL + strconv.Itoa(i.ContestID) + "/" + i.Index + "/"
 		problem.Name = i.Name
 		problem.Rating = i.Rating
@@ -83,9 +78,9 @@ func GetAllProblems() {
 		for _, t := range i.Tags {
 			problem.Tags = append(problem.Tags, t)
 		}
-		log.Println(problem.ProblemID)
+		log.Println(problem.CFID)
 		config.DB.Save(&problem)
-		log.Println("Problem added: " + problem.ProblemID)
+		log.Println("Problem added: " + problem.CFID)
 	}
 }
 
@@ -127,52 +122,44 @@ func UpdateTodaysTasks() {
 	config.DB.Delete(&config.TodaysTasks.Hard)
 
 	config.DB.Save(&models.UsedProblem{
-		ProblemID:      config.TodaysTasks.Easy.ProblemID,
-		Link:           config.TodaysTasks.Easy.Link,
-		Name:           config.TodaysTasks.Easy.Name,
-		Tags:           config.TodaysTasks.Easy.Tags,
-		Rating:         config.TodaysTasks.Easy.Rating,
-		Points:         config.TodaysTasks.Easy.Points,
-		AttemptsCount:  0,
-		SolvedCount:    0,
-		AttemptedUsers: []*models.User{},
-		SolvedUsers:    []*models.User{},
+		CFID:          config.TodaysTasks.Easy.CFID,
+		Link:          config.TodaysTasks.Easy.Link,
+		Name:          config.TodaysTasks.Easy.Name,
+		Tags:          config.TodaysTasks.Easy.Tags,
+		Rating:        config.TodaysTasks.Easy.Rating,
+		Points:        config.TodaysTasks.Easy.Points,
+		AttemptsCount: 0,
+		SolvedCount:   0,
 	})
 	config.DB.Save(&models.UsedProblem{
-		ProblemID:      config.TodaysTasks.Medium.ProblemID,
-		Link:           config.TodaysTasks.Medium.Link,
-		Name:           config.TodaysTasks.Medium.Name,
-		Tags:           config.TodaysTasks.Medium.Tags,
-		Rating:         config.TodaysTasks.Medium.Rating,
-		Points:         config.TodaysTasks.Medium.Points,
-		AttemptsCount:  0,
-		SolvedCount:    0,
-		AttemptedUsers: []*models.User{},
-		SolvedUsers:    []*models.User{},
+		CFID:          config.TodaysTasks.Medium.CFID,
+		Link:          config.TodaysTasks.Medium.Link,
+		Name:          config.TodaysTasks.Medium.Name,
+		Tags:          config.TodaysTasks.Medium.Tags,
+		Rating:        config.TodaysTasks.Medium.Rating,
+		Points:        config.TodaysTasks.Medium.Points,
+		AttemptsCount: 0,
+		SolvedCount:   0,
 	})
 	config.DB.Save(&models.UsedProblem{
-		ProblemID:      config.TodaysTasks.Advanced.ProblemID,
-		Link:           config.TodaysTasks.Advanced.Link,
-		Name:           config.TodaysTasks.Advanced.Name,
-		Tags:           config.TodaysTasks.Advanced.Tags,
-		Rating:         config.TodaysTasks.Advanced.Rating,
-		Points:         config.TodaysTasks.Advanced.Points,
-		AttemptsCount:  0,
-		SolvedCount:    0,
-		AttemptedUsers: []*models.User{},
-		SolvedUsers:    []*models.User{},
+		CFID:          config.TodaysTasks.Advanced.CFID,
+		Link:          config.TodaysTasks.Advanced.Link,
+		Name:          config.TodaysTasks.Advanced.Name,
+		Tags:          config.TodaysTasks.Advanced.Tags,
+		Rating:        config.TodaysTasks.Advanced.Rating,
+		Points:        config.TodaysTasks.Advanced.Points,
+		AttemptsCount: 0,
+		SolvedCount:   0,
 	})
 	config.DB.Save(&models.UsedProblem{
-		ProblemID:      config.TodaysTasks.Hard.ProblemID,
-		Link:           config.TodaysTasks.Hard.Link,
-		Name:           config.TodaysTasks.Hard.Name,
-		Tags:           config.TodaysTasks.Hard.Tags,
-		Rating:         config.TodaysTasks.Hard.Rating,
-		Points:         config.TodaysTasks.Hard.Points,
-		AttemptsCount:  0,
-		SolvedCount:    0,
-		AttemptedUsers: []*models.User{},
-		SolvedUsers:    []*models.User{},
+		CFID:          config.TodaysTasks.Hard.CFID,
+		Link:          config.TodaysTasks.Hard.Link,
+		Name:          config.TodaysTasks.Hard.Name,
+		Tags:          config.TodaysTasks.Hard.Tags,
+		Rating:        config.TodaysTasks.Hard.Rating,
+		Points:        config.TodaysTasks.Hard.Points,
+		AttemptsCount: 0,
+		SolvedCount:   0,
 	})
 }
 

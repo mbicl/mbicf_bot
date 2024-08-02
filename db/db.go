@@ -17,21 +17,9 @@ func Connect() {
 	}
 	adminlog.SendMessage("Connected to database", config.Ctx, config.B)
 
-	err = config.DB.AutoMigrate(&models.User{})
+	err = config.DB.AutoMigrate(&models.User{}, &models.Problem{}, &models.UsedProblem{}, &models.Attempt{}, &models.DailyTasks{}, &models.LastCheckedTime{})
 	if err != nil {
 		adminlog.Fatal("Could not migrate User struct", config.Ctx, config.B)
-	}
-	err = config.DB.AutoMigrate(&models.Problem{})
-	if err != nil {
-		adminlog.Fatal("Could not migrate Problem struct", config.Ctx, config.B)
-	}
-	err = config.DB.AutoMigrate(&models.UsedProblem{})
-	if err != nil {
-		adminlog.Fatal("Could not migrate UsedProblem struct", config.Ctx, config.B)
-	}
-	err = config.DB.AutoMigrate(&models.LastCheckedTime{})
-	if err != nil {
-		adminlog.Fatal("Could not migrate LastCheckedTime", config.Ctx, config.B)
 	}
 
 	adminlog.SendMessage("Database migrated", config.Ctx, config.B)
