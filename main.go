@@ -49,7 +49,7 @@ func main() {
 	}
 
 	crn := cron.New()
-	_, err = crn.AddFunc("@every 10m", func() {
+	_, err = crn.AddFunc("@every 1h", func() {
 		dailyTaskSender(config.Ctx, config.B)
 	})
 	if err != nil {
