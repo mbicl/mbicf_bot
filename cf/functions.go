@@ -71,7 +71,7 @@ func GetAllProblems() {
 			continue
 		}
 		problem.CFID = pid
-		problem.Link = cfmodels.ProblemsURL + strconv.Itoa(i.ContestID) + "/" + i.Index + "/"
+		problem.Link = fmt.Sprintf("https://codeforces.com/contest/%d/problem/%s", i.ContestID, i.Index)
 		problem.Name = i.Name
 		problem.Rating = i.Rating
 		problem.Points = i.Points

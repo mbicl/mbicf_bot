@@ -1,8 +1,7 @@
 package models
 
 const (
-	BaseURL     = "https://codeforces.com/api/"
-	ProblemsURL = "https://codeforces.com/problemset/problem/"
+	BaseURL = "https://codeforces.com/api/"
 )
 
 type Problem struct {

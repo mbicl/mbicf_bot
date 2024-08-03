@@ -256,7 +256,8 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				ChatID:    update.Message.Chat.ID,
 				MessageID: update.Message.ID,
 			},
-			Text: "@" + update.Message.Chat.Username + " uchun masala: " + problem.Link,
+			Text:      fmt.Sprintf("<a href=\"%s\">%s</a> (%d)", problem.Link, problem.Name, problem.Rating),
+			ParseMode: botModels.ParseModeHTML,
 		})
 		if err != nil {
 			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
@@ -325,7 +326,8 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				ChatID:    update.Message.Chat.ID,
 				MessageID: update.Message.ID,
 			},
-			Text: "@" + update.Message.Chat.Username + " uchun masala: " + problem.Link,
+			Text:      fmt.Sprintf("<a href=\"%s\">%s</a> (%d)", problem.Link, problem.Name, problem.Rating),
+			ParseMode: botModels.ParseModeHTML,
 		})
 	} else {
 		rating, err := strconv.Atoi(ratingStr)
@@ -366,7 +368,8 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 				ChatID:    update.Message.Chat.ID,
 				MessageID: update.Message.ID,
 			},
-			Text: "@" + update.Message.Chat.Username + " uchun masala: " + problem.Link,
+			Text:      fmt.Sprintf("<a href=\"%s\">%s</a> (%d)", problem.Link, problem.Name, problem.Rating),
+			ParseMode: botModels.ParseModeHTML,
 		})
 		if err != nil {
 			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
@@ -608,4 +611,19 @@ func updateUsersData() {
 	updatedStr := strings.Join(updated, ",")
 	notUpdatedStr := strings.Join(notUpdated, ",")
 	adminlog.SendMessage(fmt.Sprintf("Updated: %s\nNot updated: %s", updatedStr, notUpdatedStr), config.Ctx, config.B)
+}
+
+func imdoneHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	statsUpdater()
+	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: update.Message.Chat.ID,
+		ReplyParameters: &botModels.ReplyParameters{
+			ChatID:    update.Message.Chat.ID,
+			MessageID: update.Message.ID,
+		},
+		Text: "👍",
+	})
+	if err != nil {
+		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+	}
 }

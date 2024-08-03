@@ -33,6 +33,7 @@ func main() {
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/handle", bot.MatchTypePrefix, userRegisterHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/standings", bot.MatchTypePrefix, standingsHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/iamdone", bot.MatchTypePrefix, imdoneHandler)
 
 	db.Connect()
 	cf.GetAllProblems()
@@ -58,7 +59,7 @@ func main() {
 	config.DB.First(&config.LastCheckedTime)
 	config.LastCheckedTime.UnixTime = time.Now().Unix()
 	config.DB.Save(&config.LastCheckedTime)
-	_, err = crn.AddFunc("@every 30s", statsUpdater)
+	_, err = crn.AddFunc("@every 5m", statsUpdater)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
