@@ -2,11 +2,9 @@ package config
 
 import (
 	"context"
-	"log"
 	"os"
 
 	"github.com/go-telegram/bot"
-	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 
 	"github.com/mbicl/mbicf_bot/models"
@@ -32,9 +30,9 @@ var (
 )
 
 func init() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	//err := godotenv.Load(".env")
+	//if err != nil {
+	//	log.Fatal("Error loading .env file")
+	//}
 	BotToken = os.Getenv("BOT_TOKEN")
 }
