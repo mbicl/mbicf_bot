@@ -15,18 +15,17 @@ var (
 	DB          *gorm.DB
 	Month       = []string{"", "yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"}
 	TodaysTasks = &models.DailyTasks{}
-	GroupID     = -1002120642025 // todo change to cf group id when releasing
-	CFGroupID   = -1001524140542
+	CFGroupID   = -1002120642025 // this is test grup ID (t.odo change to cf group id when releasing)
+	GroupID     = -1001524140542 // this is Codeforces group ID
 	FMessage    = "#dailytask #%d%s\n" +
 		"%d-%s uchun kunlik masalalar.\n" +
-		"🟢Easy:         <a href=\"%s\">%s</a>\n" +
-		"🟡Medium:    <a href=\"%s\">%s</a>\n" +
-		"🟠Advanced: <a href=\"%s\">%s</a>\n" +
-		"🔴Hard:         <a href=\"%s\">%s</a>"
+		"🟢<a href=\"%s\">%s</a>(%d)\n" +
+		"🟡<a href=\"%s\">%s</a>(%d)\n" +
+		"🟠<a href=\"%s\">%s</a>(%d)\n" +
+		"🔴<a href=\"%s\">%s</a>(%d)"
 	LastCheckedTime = &models.LastCheckedTime{}
-	//UserStatusMap   = make(map[string]cfmodels.UserStatus)
-	B   *bot.Bot
-	Ctx context.Context
+	B               *bot.Bot
+	Ctx             context.Context
 )
 
 func init() {

@@ -33,7 +33,7 @@ func main() {
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/handle", bot.MatchTypePrefix, userRegisterHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/standings", bot.MatchTypePrefix, standingsHandler)
-	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/iamdone", bot.MatchTypePrefix, imdoneHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/iamdone", bot.MatchTypePrefix, iAmDoneHandler)
 
 	db.Connect()
 	cf.GetAllProblems()
@@ -50,16 +50,20 @@ func main() {
 	}
 
 	crn := cron.New()
-	_, err = crn.AddFunc("@every 1h", func() {
+	_, err = crn.AddFunc("0 8 * * *", func() {
 		dailyTaskSender(config.Ctx, config.B)
 	})
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	config.DB.First(&config.LastCheckedTime)
-	config.LastCheckedTime.UnixTime = time.Now().Unix()
-	config.DB.Save(&config.LastCheckedTime)
-	_, err = crn.AddFunc("@every 5m", statsUpdater)
+	if config.LastCheckedTime.UnixTime == 0 {
+		config.LastCheckedTime.UnixTime = time.Now().Unix()
+		config.DB.Save(&config.LastCheckedTime)
+	}
+	_, err = crn.AddFunc("@every 5m", func() {
+		_ = statsUpdater2()
+	})
 	if err != nil {
 		log.Fatal(err.Error())
 	}

@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+	"strings"
 
 	"github.com/mbicl/mbicf_bot/adminlog"
 	cfmodels "github.com/mbicl/mbicf_bot/cf/models"
@@ -16,24 +17,28 @@ import (
 
 func GetLatestAttempts(CFHandle string) []models.Attempt {
 	userStatus := cfmodels.UserStatus{}
-	//if _, ok := config.UserStatusMap[CFHandle]; !ok {
-	body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=111", cfmodels.BaseURL, CFHandle))
+	body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=111", BaseURL, CFHandle))
+	if len(body) == 0 || body == nil {
+		adminlog.SendMessage(fmt.Sprintf("Cannot get user %s's status.", CFHandle), config.Ctx, config.B)
+		return []models.Attempt{}
+	}
 	err := json.Unmarshal(body, &userStatus)
 	if err != nil {
 		adminlog.SendMessage("Error unmarshalling status for CF handle "+CFHandle, config.Ctx, config.B)
 		return []models.Attempt{}
 	}
-	//	config.UserStatusMap[CFHandle] = userStatus
-	//} else {
-	//	userStatus = config.UserStatusMap[CFHandle]
-	//}
 
 	newAttempts := make([]models.Attempt, 0)
 	for _, i := range userStatus.Result {
 		if i.CreationTimeSeconds < config.LastCheckedTime.UnixTime {
 			break
 		}
-		newAttempts = append(newAttempts, models.Attempt{Verdict: i.Verdict, User: models.User{CFHandle: CFHandle}, UsedProblem: models.UsedProblem{CFID: strconv.Itoa(i.Problem.ContestID) + i.Problem.Index}})
+		newAttempts = append(newAttempts, models.Attempt{
+			Verdict:      i.Verdict,
+			User:         models.User{CFHandle: CFHandle},
+			UsedProblem:  models.UsedProblem{CFID: strconv.Itoa(i.Problem.ContestID) + i.Problem.Index},
+			CreationTime: i.CreationTimeSeconds,
+		})
 	}
 	return newAttempts
 }
@@ -48,16 +53,17 @@ func IsUsed(ProblemID string) bool {
 }
 
 func GetAllProblems() {
-	body := utils.HTTPGet(cfmodels.BaseURL + "problemset.problems")
+	body := utils.HTTPGet(BaseURL + "problemset.problems")
 	problemSet := cfmodels.ProblemSet{}
 	err := json.Unmarshal(body, &problemSet)
 	if err != nil {
+		log.Println(string(body))
 		adminlog.Fatal("Error unmarshalling problems (GetAllProblems)."+err.Error(), config.Ctx, config.B)
 	}
 	for _, i := range problemSet.Result.Problems {
 		special := false
 		for _, k := range i.Tags {
-			if k == "*special" {
+			if strings.Contains(k, "special") {
 				special = true
 			}
 		}
@@ -68,6 +74,11 @@ func GetAllProblems() {
 		pid := strconv.Itoa(i.ContestID) + i.Index
 		config.DB.Where("cf_id = ?", pid).First(&problem)
 		if problem.Link != "" {
+			continue
+		}
+		usedProblem := models.UsedProblem{}
+		config.DB.Where("cf_id = ?", pid).First(&usedProblem)
+		if usedProblem.Link != "" {
 			continue
 		}
 		problem.CFID = pid
@@ -115,6 +126,10 @@ func UpdateTodaysTasks() {
 	config.TodaysTasks.Medium = mediumProblems[n]
 	config.TodaysTasks.Advanced = advancedProblems[n]
 	config.TodaysTasks.Hard = hardProblems[n]
+	config.TodaysTasks.EasyPoint = 100
+	config.TodaysTasks.MediumPoint = 100
+	config.TodaysTasks.AdvancedPoint = 100
+	config.TodaysTasks.HardPoint = 100
 
 	config.DB.Delete(&config.TodaysTasks.Easy)
 	config.DB.Delete(&config.TodaysTasks.Medium)

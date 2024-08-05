@@ -16,19 +16,19 @@ type User struct {
 	TGUserName string
 	TGUserID   int64 `gorm:"unique"`
 
-	AttemptsCount int `gorm:"default:0"`
-	OKCount       int `gorm:"default:0"`
-	SolvedCount   int `gorm:"default:0"`
-	Rating        int `gorm:"default:0"`
-	CountEasy     int `gorm:"default:0"`
-	CountMedium   int `gorm:"default:0"`
-	CountAdvanced int `gorm:"default:0"`
-	CountHard     int `gorm:"default:0"`
+	AttemptsCount int     `gorm:"default:0"`
+	OKCount       int     `gorm:"default:0"`
+	SolvedCount   int     `gorm:"default:0"`
+	Rating        float64 `gorm:"default:0"`
+	CountEasy     int     `gorm:"default:0"`
+	CountMedium   int     `gorm:"default:0"`
+	CountAdvanced int     `gorm:"default:0"`
+	CountHard     int     `gorm:"default:0"`
 }
 
 func (u User) String() string {
 	res := fmt.Sprintf(
-		"User{\n\tID: %d\n\tName: %s\n\tCF Handle: %s\n\tCF Rating: %d\n\tTG Username: %s\n\tAttempts: %d\n\tAccepted: %d\n\tSolved: %d\n\tRating: %d\n}",
+		"User{\n\tID: %d\n\tName: %s\n\tCF Handle: %s\n\tCF Rating: %d\n\tTG Username: %s\n\tAttempts: %d\n\tAccepted: %d\n\tSolved: %d\n\tRating: %f\n}",
 		u.ID,
 		u.FirstName+" "+u.LastName,
 		u.CFHandle,
@@ -49,13 +49,16 @@ type Attempt struct {
 	UsedProblem   UsedProblem `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;foreignKey:UsedProblemID"`
 	UsedProblemID uint
 	Verdict       string
+	CreationTime  int64
 }
 
 func (a Attempt) String() string {
 	res := fmt.Sprintf(
-		"Attempt{\n\tUser: %s\n\tUsedProblem: %s\n\tVerdict: %s\n}",
-		a.User.String(),
-		a.UsedProblem.String(),
+		"Attempt{\n\tUserID: %d\n\tCF Handle: %s\n\tUsedProblemID: %d\n\tUsedProblem CFID: %s\n\tVerdict: %s\n}",
+		a.UserID,
+		a.User.CFHandle,
+		a.UsedProblemID,
+		a.UsedProblem.CFID,
 		a.Verdict,
 	)
 	return res
@@ -115,14 +118,18 @@ func (u UsedProblem) String() string {
 
 type DailyTasks struct {
 	gorm.Model
-	Easy       Problem `gorm:"foreignKey:EasyID"`
-	EasyID     uint
-	Medium     Problem `gorm:"foreignKey:MediumID"`
-	MediumID   uint
-	Advanced   Problem `gorm:"foreignKey:AdvancedID"`
-	AdvancedID uint
-	Hard       Problem `gorm:"foreignKey:HardID"`
-	HardID     uint
+	Easy          Problem `gorm:"foreignKey:EasyID"`
+	EasyID        uint
+	EasyPoint     float64
+	Medium        Problem `gorm:"foreignKey:MediumID"`
+	MediumID      uint
+	MediumPoint   float64
+	Advanced      Problem `gorm:"foreignKey:AdvancedID"`
+	AdvancedID    uint
+	AdvancedPoint float64
+	Hard          Problem `gorm:"foreignKey:HardID"`
+	HardID        uint
+	HardPoint     float64
 }
 
 func (d DailyTasks) String() string {

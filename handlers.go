@@ -1,14 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"math"
+	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/fogleman/gg"
 	"github.com/go-telegram/bot"
 	botModels "github.com/go-telegram/bot/models"
 
@@ -47,7 +53,13 @@ func startHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 	}
 	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
-		Text:   "Assalomu alaykum",
+		Text: "Assalomu alaykum, botdan foydalanish bo'yicha qo'llanma:\n" +
+			"/handle <cfhandle> - ro'yxatdan o'tish.\n" +
+			"/iamdone - urinish qilgandan so'ng statistikani yangilash\n" +
+			"/standings - natijalar jadvalini ko'rish\n" +
+			"/gimme - reytingingizga mos tasodifiy masala olish\n" +
+			"/gimme <son> - ko'rsatilgan reytingda tasodifiy masala olish\n" +
+			"/gimme <±delta> - reytingingizdan ±deltaga farq qiluvchi tasodifiy masala olish\n",
 	})
 	if err != nil {
 		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
@@ -81,11 +93,11 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 		return
 	}
 	handle := splittedMessage[1]
-	body := utils.HTTPGet(cfmodels.BaseURL + "user.info?handles=" + handle)
+	body := utils.HTTPGet(cf.BaseURL + "user.info?handles=" + handle)
 	userInfo := cfmodels.UserInfo{}
 	err := json.Unmarshal(body, &userInfo)
 	if err != nil {
-		adminlog.SendMessage("Error unmarshalling user info: "+err.Error(), ctx, b)
+		adminlog.SendMessage("Error unmarshalling user info: "+err.Error()+string(body), ctx, b)
 		return
 	}
 
@@ -125,7 +137,7 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 			}
 			break
 		}
-		body := utils.HTTPGet(cfmodels.BaseURL + "user.status?handle=" + user.Handle + "&from=1&count=1")
+		body := utils.HTTPGet(cf.BaseURL + "user.status?handle=" + user.Handle + "&from=1&count=1")
 		if body == nil || len(body) == 0 {
 			adminlog.SendMessage("Error on getting status for user "+user.Handle, ctx, b)
 			continue
@@ -234,21 +246,10 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 		}
 
 		rating := user.CFRating
-		rating = rating / 100 * 100
-		if rating < 800 || rating > 3500 {
-			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: update.Message.Chat.ID,
-				ReplyParameters: &botModels.ReplyParameters{
-					ChatID:    update.Message.Chat.ID,
-					MessageID: update.Message.ID,
-				},
-				Text: "Reyting [800,3500] oraliqda bo'lishi kerak",
-			})
-			if err != nil {
-				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
-			}
-			return
-		}
+		rating = int(math.Round(float64(rating)/100.0)) * 100
+		rating = max(rating, 800)
+		rating = min(rating, 3500)
+
 		problem := cf.GetRandomProblemWithRating(rating)
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -304,21 +305,9 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 		}
 
 		rating := user.CFRating + ratingDelta
-		rating = rating / 100 * 100
-		if rating < 800 || rating > 3500 {
-			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: update.Message.Chat.ID,
-				ReplyParameters: &botModels.ReplyParameters{
-					ChatID:    update.Message.Chat.ID,
-					MessageID: update.Message.ID,
-				},
-				Text: "Reyting [800,3500] oraliqda bo'lishi kerak",
-			})
-			if err != nil {
-				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
-			}
-			return
-		}
+		rating = int(math.Round(float64(rating)/100.0)) * 100
+		rating = max(rating, 800)
+		rating = min(rating, 3500)
 		problem := cf.GetRandomProblemWithRating(rating)
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -346,21 +335,9 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 			}
 			return
 		}
-		rating = rating / 100 * 100
-		if rating < 800 || rating > 3500 {
-			_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: update.Message.Chat.ID,
-				ReplyParameters: &botModels.ReplyParameters{
-					ChatID:    update.Message.Chat.ID,
-					MessageID: update.Message.ID,
-				},
-				Text: "Reyting [800,3500] oraliqda bo'lishi kerak",
-			})
-			if err != nil {
-				adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
-			}
-			return
-		}
+		rating = int(math.Round(float64(rating)/100.0)) * 100
+		rating = max(rating, 800)
+		rating = min(rating, 3500)
 		problem := cf.GetRandomProblemWithRating(rating)
 		_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: update.Message.Chat.ID,
@@ -378,22 +355,154 @@ func gimmeHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 }
 
 func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	err501 := func() {
+		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.Message.Chat.ID,
+			ReplyParameters: &botModels.ReplyParameters{
+				ChatID:    update.Message.Chat.ID,
+				MessageID: update.Message.ID,
+			},
+			Text: "501",
+		})
+		if err != nil {
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+		}
+	}
+
 	users := make([]models.User, 0)
-	config.DB.Order("rating desc, cf_rating desc").Limit(20).Find(&users)
-	msg := "Standings:\n"
+	err := config.DB.Order("rating desc, cf_rating desc").Limit(20).Find(&users).Error
+	if err != nil {
+		adminlog.SendMessage("Error on fetching users for standings: "+err.Error(), ctx, b)
+		err501()
+		return
+	}
+
+	const (
+		HEIGHT = 670
+		WIDTH  = 1440
+		font   = "JetBrainsMono-Regular.ttf"
+	)
+
+	dc := gg.NewContext(WIDTH, HEIGHT)
+
+	// Header and footer background
+	dc.SetHexColor("363E3F")
+	dc.DrawRectangle(0, 0, WIDTH, 60)
+	dc.DrawRectangle(0, 660, WIDTH, 10)
+	dc.Fill()
+
+	// Header
+	err = dc.LoadFontFace(font, 25)
+	if err != nil {
+		adminlog.SendMessage("Error on loading font: "+err.Error(), ctx, b)
+		err501()
+		return
+	}
+
+	dc.SetHexColor("F3F3F3")
+	dc.DrawString("#", 14, 50)
+	dc.DrawString("Name", 60, 50)
+	dc.DrawString("Handle", 460, 50)
+	dc.DrawString("Points|Rating", 825, 50)
+
+	dc.SetHexColor("77B058")
+	dc.DrawCircle(1090, 30, 17)
+	dc.Fill()
+	dc.SetHexColor("FDCB58")
+	dc.DrawCircle(1190, 30, 17)
+	dc.Fill()
+	dc.SetHexColor("F3900D")
+	dc.DrawCircle(1290, 30, 17)
+	dc.Fill()
+	dc.SetHexColor("DC2D44")
+	dc.DrawCircle(1390, 30, 17)
+	dc.Fill()
+
+	// Table
+	for y := 60.0; y < HEIGHT-10; y += 30 {
+		if int((y-40)/30)%2 == 0 {
+			dc.SetHexColor("FFFFFF")
+			dc.DrawRectangle(0, y, WIDTH, 30)
+			dc.Fill()
+		} else {
+			dc.SetHexColor("F8F8F8")
+			dc.DrawRectangle(0, y, WIDTH, 30)
+			dc.Fill()
+		}
+	}
+
+	dc.SetHexColor("AAAAAA")
+	dc.DrawLine(40.0, 0.0, 40.0, HEIGHT)
+	dc.DrawLine(440.0, 0.0, 440.0, HEIGHT)
+	dc.DrawLine(800.0, 0.0, 800.0, HEIGHT)
+	dc.DrawLine(1040.0, 0.0, 1040.0, HEIGHT)
+	dc.DrawLine(1140.0, 0.0, 1140.0, HEIGHT)
+	dc.DrawLine(1240.0, 0.0, 1240.0, HEIGHT)
+	dc.DrawLine(1340.0, 0.0, 1340.0, HEIGHT)
+	dc.Stroke()
+
+	for i := 0; i < 20; i++ {
+		dc.DrawStringAnchored(fmt.Sprintf("%d", i), 20, float64(75+i*30), 0.5, 0.5)
+	}
 
 	for i, user := range users {
-		msg += fmt.Sprintf("%2d. %10s (%10s) - %4d (%4d)\n", i, user.FirstName, user.CFHandle, user.Rating, user.CFRating)
+		color := cf.ColorNewbie
+		if user.CFRating < 1200 {
+			color = cf.ColorNewbie
+		} else if user.CFRating < 1400 {
+			color = cf.ColorPupil
+		} else if user.CFRating < 1600 {
+			color = cf.ColorSpec
+		} else if user.CFRating < 1900 {
+			color = cf.ColorExpert
+		} else if user.CFRating < 2100 {
+			color = cf.ColorCM
+		} else if user.CFRating < 2300 {
+			color = cf.ColorMaster
+		} else if user.CFRating < 2400 {
+			color = cf.ColorIMaster
+		} else if user.CFRating < 2600 {
+			color = cf.ColorGM
+		} else if user.CFRating < 3000 {
+			color = cf.ColorIGM
+		} else {
+			color = cf.ColorLGM
+		}
+		dc.SetHexColor(color)
+		y := float64(75 + i*30)
+		dc.DrawString(fmt.Sprintf("%s %s", user.FirstName, user.LastName), 60, y+8)
+		dc.DrawString(fmt.Sprintf("%s", user.CFHandle), 460, y+8)
+		dc.DrawString(fmt.Sprintf("%7.2f|%d", user.Rating, user.CFRating), 825, y+8)
+		dc.DrawStringAnchored(fmt.Sprintf("%d", user.CountEasy), 1090, y, 0.5, 0.5)
+		dc.DrawStringAnchored(fmt.Sprintf("%d", user.CountMedium), 1190, y, 0.5, 0.5)
+		dc.DrawStringAnchored(fmt.Sprintf("%d", user.CountAdvanced), 1290, y, 0.5, 0.5)
+		dc.DrawStringAnchored(fmt.Sprintf("%d", user.CountHard), 1390, y, 0.5, 0.5)
 	}
-	if msg == "Standings:\n" {
-		msg = "Hozircha bo'sh."
+
+	err = dc.SavePNG("standings.png")
+	if err != nil {
+		adminlog.SendMessage("Error while saving image: "+err.Error(), ctx, b)
+		err501()
+		return
 	}
-	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+
+	standingsPhoto, err := os.ReadFile("standings.png")
+	if err != nil {
+		adminlog.SendMessage("Error while reading standings photo: "+err.Error(), ctx, b)
+		err501()
+		return
+	}
+
+	_, err = b.SendPhoto(ctx, &bot.SendPhotoParams{
 		ChatID: update.Message.Chat.ID,
-		Text:   msg,
+		Photo:  &botModels.InputFileUpload{Filename: "standings.png", Data: bytes.NewReader(standingsPhoto)},
+		ReplyParameters: &botModels.ReplyParameters{
+			ChatID:    update.Message.Chat.ID,
+			MessageID: update.Message.ID,
+		},
 	})
 	if err != nil {
-		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+		adminlog.SendMessage("Error while sending standings photo: "+err.Error(), ctx, b)
 	}
 }
 
@@ -421,12 +530,16 @@ func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 		config.Month[time.Now().Month()],
 		config.TodaysTasks.Easy.Link,
 		config.TodaysTasks.Easy.Name,
+		config.TodaysTasks.Easy.Rating,
 		config.TodaysTasks.Medium.Link,
 		config.TodaysTasks.Medium.Name,
+		config.TodaysTasks.Medium.Rating,
 		config.TodaysTasks.Advanced.Link,
 		config.TodaysTasks.Advanced.Name,
+		config.TodaysTasks.Advanced.Rating,
 		config.TodaysTasks.Hard.Link,
 		config.TodaysTasks.Hard.Name,
+		config.TodaysTasks.Hard.Rating,
 	)
 
 	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
@@ -446,7 +559,6 @@ func statsUpdater() {
 	usedProblems := make([]models.UsedProblem, 0)
 
 	config.DB.Find(&usedProblems)
-	//config.UserStatusMap = make(map[string]cfmodels.UserStatus)
 
 	updateCheckedTime := true
 	for _, user := range users {
@@ -551,7 +663,7 @@ func statsUpdater() {
 		if attemptCountDelta == 0 {
 			continue
 		}
-		user.Rating += userRatingDelta
+		user.Rating += float64(userRatingDelta)
 		user.SolvedCount += SolvedCountDelta
 		user.OKCount += OKCountDelta
 		user.AttemptsCount += attemptCountDelta
@@ -570,6 +682,168 @@ func statsUpdater() {
 	log.Println("Stats updated successfully")
 }
 
+func statsUpdater2() error {
+	users := make([]models.User, 0)
+	usedProblems := make([]models.UsedProblem, 0)
+	newAttempts := make([]models.Attempt, 0)
+
+	err := config.DB.Find(&users).Error
+	if err != nil {
+		adminlog.SendMessage("Error on fetching all users (stats updater): "+err.Error(), config.Ctx, config.B)
+		return errors.New("database error")
+	}
+	err = config.DB.Find(&usedProblems).Error
+	if err != nil {
+		adminlog.SendMessage("Error on fetching all used problems (stats updater): "+err.Error(), config.Ctx, config.B)
+		return errors.New("database error")
+	}
+
+	updateCheckedTime := true
+	checkedTime := time.Now().Unix()
+	for _, user := range users {
+		userNewAttempts := cf.GetLatestAttempts(user.CFHandle)
+		for _, attempt := range userNewAttempts {
+			ok := false
+			for _, usedProblem := range usedProblems {
+				if attempt.UsedProblem.CFID == usedProblem.CFID {
+					ok = true
+					attempt.UsedProblem = usedProblem
+					attempt.UsedProblemID = usedProblem.ID
+					break
+				}
+			}
+			if !ok {
+				continue
+			}
+			if attempt.Verdict == "TESTING" {
+				updateCheckedTime = false
+				break
+			}
+
+			attempt.User = user
+			attempt.UserID = user.ID
+			newAttempts = append(newAttempts, attempt)
+		}
+		if !updateCheckedTime {
+			break
+		}
+	}
+	if !updateCheckedTime {
+		return errors.New("TESTING")
+	}
+	config.DB.First(&config.LastCheckedTime)
+	config.LastCheckedTime.UnixTime = checkedTime
+	config.DB.Save(&config.LastCheckedTime)
+
+	sort.Slice(newAttempts, func(i, j int) bool {
+		return newAttempts[i].CreationTime < newAttempts[j].CreationTime
+	})
+
+	for _, newAttempt := range newAttempts {
+		usedProblemIndex := -1
+		for i := 0; i < len(usedProblems); i++ {
+			if newAttempt.UsedProblemID == usedProblems[i].ID {
+				usedProblemIndex = i
+				break
+			}
+		}
+		userIndex := -1
+		for i := 0; i < len(users); i++ {
+			if newAttempt.UserID == users[i].ID {
+				userIndex = i
+				break
+			}
+		}
+
+		usedProblems[usedProblemIndex].AttemptsCount++
+		users[userIndex].AttemptsCount++
+		if newAttempt.Verdict == "OK" {
+			users[userIndex].OKCount++
+			usedProblems[usedProblemIndex].OKCount++
+		}
+		oldAttempts := make([]models.Attempt, 0)
+		config.DB.
+			Model(&models.Attempt{}).
+			Where("user_id = ?", newAttempt.UserID).
+			Where("used_problem_id = ?", newAttempt.UsedProblemID).
+			Find(&oldAttempts)
+		isSolved := false
+		for _, oldAttempt := range oldAttempts {
+			//log.Println(oldAttempt)
+			if oldAttempt.Verdict == "OK" {
+				isSolved = true
+				//adminlog.SendMessage(fmt.Sprintf("%s solved %s problem before.", users[userIndex].CFHandle, usedProblems[usedProblemIndex].CFID), config.Ctx, config.B)
+			}
+		}
+		if !isSolved && newAttempt.Verdict == "OK" {
+			users[userIndex].SolvedCount++
+			usedProblems[usedProblemIndex].SolvedCount++
+			cfRating := usedProblems[usedProblemIndex].Rating
+			if cfRating > 700 && cfRating < 1100 {
+				users[userIndex].CountEasy++
+			}
+			if cfRating > 1000 && cfRating < 1600 {
+				users[userIndex].CountMedium++
+			}
+			if cfRating > 1500 && cfRating < 2100 {
+				users[userIndex].CountAdvanced++
+			}
+			if cfRating > 2000 {
+				users[userIndex].CountHard++
+			}
+		}
+
+		err := config.DB.Create(&newAttempt).Error
+		if err != nil {
+			adminlog.SendMessage("Error on creating new attempt: "+err.Error(), config.Ctx, config.B)
+		}
+
+		if newAttempt.Verdict != "OK" {
+			continue
+		}
+		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Easy.CFID {
+			users[userIndex].Rating += config.TodaysTasks.EasyPoint
+			config.TodaysTasks.EasyPoint = math.Max(20, config.TodaysTasks.EasyPoint*0.97)
+			config.DB.Save(&config.TodaysTasks)
+			continue
+		}
+		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Medium.CFID {
+			users[userIndex].Rating += config.TodaysTasks.MediumPoint
+			config.TodaysTasks.MediumPoint = math.Max(20, config.TodaysTasks.MediumPoint*0.95)
+			config.DB.Save(&config.TodaysTasks)
+			continue
+		}
+		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Advanced.CFID {
+			users[userIndex].Rating += config.TodaysTasks.AdvancedPoint
+			config.TodaysTasks.AdvancedPoint = math.Max(20, config.TodaysTasks.AdvancedPoint*0.93)
+			config.DB.Save(&config.TodaysTasks)
+			continue
+		}
+		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Hard.CFID {
+			users[userIndex].Rating += config.TodaysTasks.HardPoint
+			config.TodaysTasks.HardPoint = math.Max(20, config.TodaysTasks.HardPoint*0.9)
+			config.DB.Save(&config.TodaysTasks)
+			continue
+		}
+		users[userIndex].Rating += 10
+	}
+
+	for _, user := range users {
+		err := config.DB.Save(&user).Error
+		if err != nil {
+			adminlog.SendMessage(fmt.Sprintf("Error on updating user (%s) data: %s", user.CFHandle, err.Error()), config.Ctx, config.B)
+		}
+	}
+	for _, problem := range usedProblems {
+		err := config.DB.Save(&problem).Error
+		if err != nil {
+			adminlog.SendMessage(fmt.Sprintf("Error on updating problem (%s) data: %s", problem.CFID, err.Error()), config.Ctx, config.B)
+		}
+	}
+
+	return nil
+}
+
 func updateUsersData() {
 	users := make([]models.User, 0)
 	err := config.DB.Find(&users).Error
@@ -580,7 +854,7 @@ func updateUsersData() {
 	updated := make([]string, 0)
 	notUpdated := make([]string, 0)
 	for _, user := range users {
-		body := utils.HTTPGet(cfmodels.BaseURL + "user.info?handles=" + user.CFHandle)
+		body := utils.HTTPGet(cf.BaseURL + "user.info?handles=" + user.CFHandle)
 		if body == nil || len(body) == 0 {
 			adminlog.SendMessage("Error getting user info while updating users data: "+user.CFHandle, config.Ctx, config.B)
 			notUpdated = append(notUpdated, user.CFHandle)
@@ -600,6 +874,9 @@ func updateUsersData() {
 		}
 		userInfo := res.Result[0]
 		user.CFRating = userInfo.Rating
+		user.FirstName = userInfo.FirstName
+		user.LastName = userInfo.LastName
+
 		err = config.DB.Save(&user).Error
 		if err != nil {
 			adminlog.SendMessage("Error while updating users data: "+user.CFHandle+" "+err.Error(), config.Ctx, config.B)
@@ -611,11 +888,44 @@ func updateUsersData() {
 	updatedStr := strings.Join(updated, ",")
 	notUpdatedStr := strings.Join(notUpdated, ",")
 	adminlog.SendMessage(fmt.Sprintf("Updated: %s\nNot updated: %s", updatedStr, notUpdatedStr), config.Ctx, config.B)
+
+	data, err := os.ReadFile("sqlite.db")
+	if err != nil {
+		adminlog.SendMessage("Cannot send database file: "+err.Error(), config.Ctx, config.B)
+		return
+	}
+
+	_, err = config.B.SendDocument(config.Ctx, &bot.SendDocumentParams{
+		ChatID:   adminlog.TGID,
+		Document: &botModels.InputFileUpload{Filename: "sqlite.db", Data: bytes.NewReader(data)},
+		Caption:  "Database for backup",
+	})
+	if err != nil {
+		adminlog.SendMessage("Cannot send database file: "+err.Error(), config.Ctx, config.B)
+	}
 }
 
-func imdoneHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
-	statsUpdater()
-	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+func iAmDoneHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	err := statsUpdater2()
+	if err != nil && err.Error() == "TESTING" {
+		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.Message.Chat.ID,
+			ReplyParameters: &botModels.ReplyParameters{
+				ChatID:    update.Message.Chat.ID,
+				MessageID: update.Message.ID,
+			},
+			Text: "Ba'zi foydalanuvchilarning yechimlari testlash jarayonida, keyinroq urinib ko'ring.",
+		})
+		if err != nil {
+			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+		}
+		return
+	}
+	if err != nil {
+		//adminlog.SendMessage(err.Error(), ctx, b)
+	}
+
+	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		ReplyParameters: &botModels.ReplyParameters{
 			ChatID:    update.Message.Chat.ID,

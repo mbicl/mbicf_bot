@@ -1,9 +1,5 @@
 package models
 
-const (
-	BaseURL = "https://codeforces.com/api/"
-)
-
 type Problem struct {
 	ContestID int      `json:"contestId"`
 	Index     string   `json:"index"`

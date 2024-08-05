@@ -19,7 +19,7 @@ func Connect() {
 
 	err = config.DB.AutoMigrate(&models.User{}, &models.Problem{}, &models.UsedProblem{}, &models.Attempt{}, &models.DailyTasks{}, &models.LastCheckedTime{})
 	if err != nil {
-		adminlog.Fatal("Could not migrate User struct", config.Ctx, config.B)
+		adminlog.Fatal("Could not ", config.Ctx, config.B)
 	}
 
 	adminlog.SendMessage("Database migrated", config.Ctx, config.B)
