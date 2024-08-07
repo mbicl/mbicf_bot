@@ -17,7 +17,7 @@ import (
 
 func GetLatestAttempts(CFHandle string) []models.Attempt {
 	userStatus := cfmodels.UserStatus{}
-	body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=111", BaseURL, CFHandle))
+	body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=10", BaseURL, CFHandle))
 	if len(body) == 0 || body == nil {
 		adminlog.SendMessage(fmt.Sprintf("Cannot get user %s's status.", CFHandle), config.Ctx, config.B)
 		return []models.Attempt{}
