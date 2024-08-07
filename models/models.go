@@ -118,27 +118,27 @@ func (u UsedProblem) String() string {
 
 type DailyTasks struct {
 	gorm.Model
-	Easy          Problem `gorm:"foreignKey:EasyID"`
+	Easy          UsedProblem `gorm:"foreignKey:EasyID"`
 	EasyID        uint
 	EasyPoint     float64
-	Medium        Problem `gorm:"foreignKey:MediumID"`
+	Medium        UsedProblem `gorm:"foreignKey:MediumID"`
 	MediumID      uint
 	MediumPoint   float64
-	Advanced      Problem `gorm:"foreignKey:AdvancedID"`
+	Advanced      UsedProblem `gorm:"foreignKey:AdvancedID"`
 	AdvancedID    uint
 	AdvancedPoint float64
-	Hard          Problem `gorm:"foreignKey:HardID"`
+	Hard          UsedProblem `gorm:"foreignKey:HardID"`
 	HardID        uint
 	HardPoint     float64
 }
 
 func (d DailyTasks) String() string {
 	res := fmt.Sprintf(
-		"Daily Tasks {\n\tEasy: %s(%d)\n\tMedium: %s(%d)\n\tAdvanced: %s(%d)\n\tHard: %s(%d)\n}\n",
-		d.Easy.CFID, d.EasyID,
-		d.Medium.CFID, d.MediumID,
-		d.Advanced.CFID, d.AdvancedID,
-		d.Hard.CFID, d.HardID,
+		"Daily Tasks {\n\tEasy: %s(%d,%f)\n\tMedium: %s(%d,%f)\n\tAdvanced: %s(%d,%f)\n\tHard: %s(%d,%f)\n}\n",
+		d.Easy.CFID, d.EasyID, d.EasyPoint,
+		d.Medium.CFID, d.MediumID, d.MediumPoint,
+		d.Advanced.CFID, d.AdvancedID, d.AdvancedPoint,
+		d.Hard.CFID, d.HardID, d.HardPoint,
 	)
 	return res
 }

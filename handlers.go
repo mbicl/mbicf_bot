@@ -169,13 +169,22 @@ func userRegisterHandler(ctx context.Context, b *bot.Bot, update *botModels.Upda
 			newUser = models.User{}
 			config.DB.Where("tg_user_id = ?", update.Message.Chat.ID).First(&newUser)
 			if newUser.TGUserID != 0 {
-				config.DB.Model(&models.User{}).Where("tg_user_id = ?", update.Message.Chat.ID).Updates(models.User{
-					FirstName:  user.FirstName,
-					LastName:   user.LastName,
-					CFHandle:   user.Handle,
-					CFRating:   user.Rating,
-					TGUserName: update.Message.Chat.Username,
-				})
+				newUser.CFHandle = user.Handle
+				newUser.CFRating = user.Rating
+				newUser.FirstName = user.FirstName
+				newUser.LastName = user.LastName
+				err := config.DB.Save(&newUser).Error
+				if err != nil {
+					adminlog.SendMessage("Error on updating user data: "+err.Error(), ctx, b)
+					_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+						ChatID: update.Message.Chat.ID,
+						Text:   "Ma'lumotlarni yangilashda xatolik yuz berdi.",
+					})
+					if err != nil {
+						adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+					}
+					return
+				}
 				_, err = b.SendMessage(ctx, &bot.SendMessageParams{
 					ChatID: update.Message.Chat.ID,
 					Text:   "Ma'lumotlaringiz yangilandi.",
@@ -508,7 +517,7 @@ func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update)
 
 func dailyTaskSender(ctx context.Context, b *bot.Bot) {
 	cf.UpdateTodaysTasks()
-	err := config.DB.Save(&config.TodaysTasks).Error
+	err := config.DB.Save(config.TodaysTasks).Error
 	if err != nil {
 		adminlog.SendMessage("Error while updating daily tasks: "+err.Error(), ctx, b)
 		return
@@ -798,31 +807,31 @@ func statsUpdater2() error {
 			adminlog.SendMessage("Error on creating new attempt: "+err.Error(), config.Ctx, config.B)
 		}
 
-		if newAttempt.Verdict != "OK" {
+		if newAttempt.Verdict != "OK" || isSolved {
 			continue
 		}
 		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Easy.CFID {
 			users[userIndex].Rating += config.TodaysTasks.EasyPoint
 			config.TodaysTasks.EasyPoint = math.Max(20, config.TodaysTasks.EasyPoint*0.97)
-			config.DB.Save(&config.TodaysTasks)
+			config.DB.Save(config.TodaysTasks)
 			continue
 		}
 		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Medium.CFID {
 			users[userIndex].Rating += config.TodaysTasks.MediumPoint
 			config.TodaysTasks.MediumPoint = math.Max(20, config.TodaysTasks.MediumPoint*0.95)
-			config.DB.Save(&config.TodaysTasks)
+			config.DB.Save(config.TodaysTasks)
 			continue
 		}
 		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Advanced.CFID {
 			users[userIndex].Rating += config.TodaysTasks.AdvancedPoint
 			config.TodaysTasks.AdvancedPoint = math.Max(20, config.TodaysTasks.AdvancedPoint*0.93)
-			config.DB.Save(&config.TodaysTasks)
+			config.DB.Save(config.TodaysTasks)
 			continue
 		}
 		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Hard.CFID {
 			users[userIndex].Rating += config.TodaysTasks.HardPoint
 			config.TodaysTasks.HardPoint = math.Max(20, config.TodaysTasks.HardPoint*0.9)
-			config.DB.Save(&config.TodaysTasks)
+			config.DB.Save(config.TodaysTasks)
 			continue
 		}
 		users[userIndex].Rating += 10
@@ -932,6 +941,87 @@ func iAmDoneHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 			MessageID: update.Message.ID,
 		},
 		Text: "👍",
+	})
+	if err != nil {
+		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+	}
+}
+
+func databaseBackupHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	if update.Message.Chat.ID != int64(adminlog.TGID) {
+		return
+	}
+	data, err := os.ReadFile("sqlite.db")
+	if err != nil {
+		adminlog.SendMessage("Cannot send database file: "+err.Error(), ctx, b)
+		return
+	}
+
+	_, err = b.SendDocument(ctx, &bot.SendDocumentParams{
+		ChatID:   adminlog.TGID,
+		Document: &botModels.InputFileUpload{Filename: "sqlite.db", Data: bytes.NewReader(data)},
+		Caption:  "Database for backup",
+	})
+	if err != nil {
+		adminlog.SendMessage("Cannot send database file: "+err.Error(), ctx, b)
+	}
+}
+
+func dailyTasksHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	_, err := b.SendChatAction(ctx, &bot.SendChatActionParams{
+		ChatID: update.Message.Chat.ID,
+		Action: botModels.ChatActionTyping,
+	})
+	if err != nil {
+		adminlog.SendMessage("Error sending chat action: "+err.Error(), ctx, b)
+	}
+	msg := fmt.Sprintf(
+		config.FMessage,
+		time.Now().Day(),
+		config.Month[time.Now().Month()],
+		time.Now().Day(),
+		config.Month[time.Now().Month()],
+		config.TodaysTasks.Easy.Link,
+		config.TodaysTasks.Easy.Name,
+		config.TodaysTasks.Easy.Rating,
+		config.TodaysTasks.Medium.Link,
+		config.TodaysTasks.Medium.Name,
+		config.TodaysTasks.Medium.Rating,
+		config.TodaysTasks.Advanced.Link,
+		config.TodaysTasks.Advanced.Name,
+		config.TodaysTasks.Advanced.Rating,
+		config.TodaysTasks.Hard.Link,
+		config.TodaysTasks.Hard.Name,
+		config.TodaysTasks.Hard.Rating,
+	)
+
+	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    update.Message.Chat.ID,
+		Text:      msg,
+		ParseMode: botModels.ParseModeHTML,
+		ReplyParameters: &botModels.ReplyParameters{
+			ChatID:    update.Message.Chat.ID,
+			MessageID: update.Message.ID,
+		},
+	})
+	if err != nil {
+		adminlog.SendMessage("Error sending daily task: "+err.Error(), ctx, b)
+		return
+	}
+}
+
+func updateUsersDataHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
+	if update.Message.Chat.ID != int64(adminlog.TGID) {
+		return
+	}
+	updateUsersData()
+	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: update.Message.Chat.ID,
+		ReplyParameters: &botModels.ReplyParameters{
+			ChatID:    update.Message.Chat.ID,
+			MessageID: update.Message.ID,
+		},
+		Text: "Yangilandi.",
 	})
 	if err != nil {
 		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)

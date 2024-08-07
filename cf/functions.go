@@ -122,60 +122,52 @@ func UpdateTodaysTasks() {
 
 	n := rand.Intn(min(len(easyProblems), len(mediumProblems), len(advancedProblems), len(hardProblems)))
 
-	config.TodaysTasks.Easy = easyProblems[n]
-	config.TodaysTasks.Medium = mediumProblems[n]
-	config.TodaysTasks.Advanced = advancedProblems[n]
-	config.TodaysTasks.Hard = hardProblems[n]
+	config.TodaysTasks.Easy = models.UsedProblem{
+		CFID:   easyProblems[n].CFID,
+		Link:   easyProblems[n].Link,
+		Name:   easyProblems[n].Name,
+		Rating: easyProblems[n].Rating,
+		Points: easyProblems[n].Points,
+		Tags:   easyProblems[n].Tags,
+	}
+	config.TodaysTasks.Medium = models.UsedProblem{
+		CFID:   mediumProblems[n].CFID,
+		Link:   mediumProblems[n].Link,
+		Name:   mediumProblems[n].Name,
+		Rating: mediumProblems[n].Rating,
+		Points: mediumProblems[n].Points,
+		Tags:   mediumProblems[n].Tags,
+	}
+	config.TodaysTasks.Advanced = models.UsedProblem{
+		CFID:   advancedProblems[n].CFID,
+		Link:   advancedProblems[n].Link,
+		Name:   advancedProblems[n].Name,
+		Rating: advancedProblems[n].Rating,
+		Points: advancedProblems[n].Points,
+		Tags:   advancedProblems[n].Tags,
+	}
+	config.TodaysTasks.Hard = models.UsedProblem{
+		CFID:   hardProblems[n].CFID,
+		Link:   hardProblems[n].Link,
+		Name:   hardProblems[n].Name,
+		Rating: hardProblems[n].Rating,
+		Points: hardProblems[n].Points,
+		Tags:   hardProblems[n].Tags,
+	}
 	config.TodaysTasks.EasyPoint = 100
 	config.TodaysTasks.MediumPoint = 100
 	config.TodaysTasks.AdvancedPoint = 100
 	config.TodaysTasks.HardPoint = 100
 
-	config.DB.Delete(&config.TodaysTasks.Easy)
-	config.DB.Delete(&config.TodaysTasks.Medium)
-	config.DB.Delete(&config.TodaysTasks.Advanced)
-	config.DB.Delete(&config.TodaysTasks.Hard)
+	config.DB.Delete(&easyProblems[n])
+	config.DB.Delete(&mediumProblems[n])
+	config.DB.Delete(&advancedProblems[n])
+	config.DB.Delete(&hardProblems[n])
 
-	config.DB.Save(&models.UsedProblem{
-		CFID:          config.TodaysTasks.Easy.CFID,
-		Link:          config.TodaysTasks.Easy.Link,
-		Name:          config.TodaysTasks.Easy.Name,
-		Tags:          config.TodaysTasks.Easy.Tags,
-		Rating:        config.TodaysTasks.Easy.Rating,
-		Points:        config.TodaysTasks.Easy.Points,
-		AttemptsCount: 0,
-		SolvedCount:   0,
-	})
-	config.DB.Save(&models.UsedProblem{
-		CFID:          config.TodaysTasks.Medium.CFID,
-		Link:          config.TodaysTasks.Medium.Link,
-		Name:          config.TodaysTasks.Medium.Name,
-		Tags:          config.TodaysTasks.Medium.Tags,
-		Rating:        config.TodaysTasks.Medium.Rating,
-		Points:        config.TodaysTasks.Medium.Points,
-		AttemptsCount: 0,
-		SolvedCount:   0,
-	})
-	config.DB.Save(&models.UsedProblem{
-		CFID:          config.TodaysTasks.Advanced.CFID,
-		Link:          config.TodaysTasks.Advanced.Link,
-		Name:          config.TodaysTasks.Advanced.Name,
-		Tags:          config.TodaysTasks.Advanced.Tags,
-		Rating:        config.TodaysTasks.Advanced.Rating,
-		Points:        config.TodaysTasks.Advanced.Points,
-		AttemptsCount: 0,
-		SolvedCount:   0,
-	})
-	config.DB.Save(&models.UsedProblem{
-		CFID:          config.TodaysTasks.Hard.CFID,
-		Link:          config.TodaysTasks.Hard.Link,
-		Name:          config.TodaysTasks.Hard.Name,
-		Tags:          config.TodaysTasks.Hard.Tags,
-		Rating:        config.TodaysTasks.Hard.Rating,
-		Points:        config.TodaysTasks.Hard.Points,
-		AttemptsCount: 0,
-		SolvedCount:   0,
-	})
+	config.DB.Save(&config.TodaysTasks.Easy)
+	config.DB.Save(&config.TodaysTasks.Medium)
+	config.DB.Save(&config.TodaysTasks.Advanced)
+	config.DB.Save(&config.TodaysTasks.Hard)
 }
 
 func GetRandomProblem() *models.Problem {

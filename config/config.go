@@ -15,9 +15,9 @@ var (
 	DB          *gorm.DB
 	Month       = []string{"", "yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentyabr", "oktyabr", "noyabr", "dekabr"}
 	TodaysTasks = &models.DailyTasks{}
-	CFGroupID   = -1002120642025 // this is test grup ID (t.odo change to cf group id when releasing)
-	GroupID     = -1001524140542 // this is Codeforces group ID
-	FMessage    = "#dailytask #%d%s\n" +
+	//GroupID     = -1002120642025 // test grup ID
+	GroupID  = -1001524140542 // Codeforces group ID
+	FMessage = "#dailytask #%d%s\n" +
 		"%d-%s uchun kunlik masalalar.\n" +
 		"🟢<a href=\"%s\">%s</a>(%d)\n" +
 		"🟡<a href=\"%s\">%s</a>(%d)\n" +

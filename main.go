@@ -16,6 +16,7 @@ import (
 	"github.com/mbicl/mbicf_bot/cf"
 	"github.com/mbicl/mbicf_bot/config"
 	"github.com/mbicl/mbicf_bot/db"
+	"github.com/mbicl/mbicf_bot/models"
 )
 
 func main() {
@@ -34,22 +35,32 @@ func main() {
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/gimme", bot.MatchTypePrefix, gimmeHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/standings", bot.MatchTypePrefix, standingsHandler)
 	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/iamdone", bot.MatchTypePrefix, iAmDoneHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/dailytasks", bot.MatchTypePrefix, dailyTasksHandler)
+
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/givemedatabasefile", bot.MatchTypePrefix, databaseBackupHandler)
+	config.B.RegisterHandler(bot.HandlerTypeMessageText, "/updateusersdata", bot.MatchTypePrefix, updateUsersDataHandler)
 
 	db.Connect()
 	cf.GetAllProblems()
 
 	err = config.DB.
+		Model(&models.DailyTasks{}).
 		Preload("Easy").
 		Preload("Medium").
 		Preload("Advanced").
 		Preload("Hard").
-		First(&config.TodaysTasks).
+		First(config.TodaysTasks).
 		Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Println(err.Error())
 	}
+	log.Println(config.TodaysTasks)
 
-	crn := cron.New()
+	location, err := time.LoadLocation("Asia/Tashkent")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	crn := cron.New(cron.WithLocation(location))
 	_, err = crn.AddFunc("0 8 * * *", func() {
 		dailyTaskSender(config.Ctx, config.B)
 	})
