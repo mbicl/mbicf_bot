@@ -516,6 +516,7 @@ func standingsHandler(ctx context.Context, b *bot.Bot, update *botModels.Update)
 }
 
 func dailyTaskSender(ctx context.Context, b *bot.Bot) {
+	_ = statsUpdater2()
 	cf.UpdateTodaysTasks()
 	err := config.DB.Save(config.TodaysTasks).Error
 	if err != nil {
@@ -724,7 +725,7 @@ func statsUpdater2() error {
 			if !ok {
 				continue
 			}
-			if attempt.Verdict == "TESTING" {
+			if attempt.Verdict == "TESTING" || len(attempt.Verdict) == 0 {
 				updateCheckedTime = false
 				break
 			}
@@ -764,6 +765,8 @@ func statsUpdater2() error {
 			}
 		}
 
+		log.Println(userIndex, usedProblemIndex)
+
 		usedProblems[usedProblemIndex].AttemptsCount++
 		users[userIndex].AttemptsCount++
 		if newAttempt.Verdict == "OK" {
@@ -773,6 +776,8 @@ func statsUpdater2() error {
 		oldAttempts := make([]models.Attempt, 0)
 		config.DB.
 			Model(&models.Attempt{}).
+			Preload("User").
+			Preload("UsedProblem").
 			Where("user_id = ?", newAttempt.UserID).
 			Where("used_problem_id = ?", newAttempt.UsedProblemID).
 			Find(&oldAttempts)
@@ -781,7 +786,7 @@ func statsUpdater2() error {
 			//log.Println(oldAttempt)
 			if oldAttempt.Verdict == "OK" {
 				isSolved = true
-				//adminlog.SendMessage(fmt.Sprintf("%s solved %s problem before.", users[userIndex].CFHandle, usedProblems[usedProblemIndex].CFID), config.Ctx, config.B)
+				adminlog.SendMessage(fmt.Sprintf("%s solved %s problem before.", users[userIndex].CFHandle, usedProblems[usedProblemIndex].CFID), config.Ctx, config.B)
 			}
 		}
 		if !isSolved && newAttempt.Verdict == "OK" {
@@ -810,6 +815,7 @@ func statsUpdater2() error {
 		if newAttempt.Verdict != "OK" || isSolved {
 			continue
 		}
+		//adminlog.SendMessage("adding delta for user: "+users[userIndex].CFHandle, config.Ctx, config.B)
 		if newAttempt.UsedProblem.CFID == config.TodaysTasks.Easy.CFID {
 			users[userIndex].Rating += config.TodaysTasks.EasyPoint
 			config.TodaysTasks.EasyPoint = math.Max(20, config.TodaysTasks.EasyPoint*0.97)
@@ -839,12 +845,14 @@ func statsUpdater2() error {
 
 	for _, user := range users {
 		err := config.DB.Save(&user).Error
+		//adminlog.SendMessage(user.CFHandle+" updated", config.Ctx, config.B)
 		if err != nil {
 			adminlog.SendMessage(fmt.Sprintf("Error on updating user (%s) data: %s", user.CFHandle, err.Error()), config.Ctx, config.B)
 		}
 	}
 	for _, problem := range usedProblems {
 		err := config.DB.Save(&problem).Error
+		//adminlog.SendMessage(problem.CFID+" updated", config.Ctx, config.B)
 		if err != nil {
 			adminlog.SendMessage(fmt.Sprintf("Error on updating problem (%s) data: %s", problem.CFID, err.Error()), config.Ctx, config.B)
 		}
