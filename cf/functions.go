@@ -2,6 +2,7 @@ package cf
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -15,17 +16,17 @@ import (
 	"github.com/mbicl/mbicf_bot/utils"
 )
 
-func GetLatestAttempts(CFHandle string) []models.Attempt {
+func GetLatestAttempts(CFHandle string) ([]models.Attempt, error) {
 	userStatus := cfmodels.UserStatus{}
 	body := utils.HTTPGet(fmt.Sprintf("%suser.status?handle=%s&from=1&count=10", BaseURL, CFHandle))
 	if len(body) == 0 || body == nil {
 		adminlog.SendMessage(fmt.Sprintf("Cannot get user %s's status.", CFHandle), config.Ctx, config.B)
-		return []models.Attempt{}
+		return []models.Attempt{}, errors.New("Cannot get user's status.")
 	}
 	err := json.Unmarshal(body, &userStatus)
 	if err != nil {
 		adminlog.SendMessage("Error unmarshalling status for CF handle "+CFHandle, config.Ctx, config.B)
-		return []models.Attempt{}
+		return []models.Attempt{}, errors.New("Cannot get user's status.")
 	}
 
 	newAttempts := make([]models.Attempt, 0)
@@ -40,7 +41,7 @@ func GetLatestAttempts(CFHandle string) []models.Attempt {
 			CreationTime: i.CreationTimeSeconds,
 		})
 	}
-	return newAttempts
+	return newAttempts, nil
 }
 
 func IsUsed(ProblemID string) bool {

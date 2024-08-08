@@ -19,10 +19,10 @@ var (
 	GroupID  = -1001524140542 // Codeforces group ID
 	FMessage = "#dailytask #%d%s\n" +
 		"%d-%s uchun kunlik masalalar.\n" +
-		"🟢<a href=\"%s\">%s</a>(%d)\n" +
-		"🟡<a href=\"%s\">%s</a>(%d)\n" +
-		"🟠<a href=\"%s\">%s</a>(%d)\n" +
-		"🔴<a href=\"%s\">%s</a>(%d)"
+		"🟢<a href=\"%s\">%s</a>(<span class=\"tg-spoiler\">%d</span>)\n" +
+		"🟡<a href=\"%s\">%s</a>(<span class=\"tg-spoiler\">%d</span>)\n" +
+		"🟠<a href=\"%s\">%s</a>(<span class=\"tg-spoiler\">%d</span>)\n" +
+		"🔴<a href=\"%s\">%s</a>(<span class=\"tg-spoiler\">%d</span>)"
 	LastCheckedTime = &models.LastCheckedTime{}
 	B               *bot.Bot
 	Ctx             context.Context

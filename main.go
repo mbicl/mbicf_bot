@@ -72,7 +72,7 @@ func main() {
 		config.LastCheckedTime.UnixTime = time.Now().Unix()
 		config.DB.Save(&config.LastCheckedTime)
 	}
-	_, err = crn.AddFunc("@every 5m", func() {
+	_, err = crn.AddFunc("@every 2m", func() {
 		_ = statsUpdater2()
 	})
 	if err != nil {

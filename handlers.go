@@ -572,7 +572,11 @@ func statsUpdater() {
 
 	updateCheckedTime := true
 	for _, user := range users {
-		newAttempts := cf.GetLatestAttempts(user.CFHandle)
+		newAttempts, err := cf.GetLatestAttempts(user.CFHandle)
+		if err != nil {
+			adminlog.SendMessage("Codeforces error while updating stats", config.Ctx, config.B)
+			return
+		}
 		if len(newAttempts) == 0 {
 			continue
 		}
@@ -588,7 +592,7 @@ func statsUpdater() {
 		SolvedCountDelta := 0
 
 		userAttempts := make([]models.Attempt, 0)
-		err := config.DB.
+		err = config.DB.
 			Model(&models.Attempt{}).
 			Preload("User").
 			Preload("UsedProblem").
@@ -711,7 +715,11 @@ func statsUpdater2() error {
 	updateCheckedTime := true
 	checkedTime := time.Now().Unix()
 	for _, user := range users {
-		userNewAttempts := cf.GetLatestAttempts(user.CFHandle)
+		userNewAttempts, err := cf.GetLatestAttempts(user.CFHandle)
+		if err != nil {
+			adminlog.SendMessage("Codeforces error while updating status.", config.Ctx, config.B)
+			return errors.New("codeforces API error")
+		}
 		for _, attempt := range userNewAttempts {
 			ok := false
 			for _, usedProblem := range usedProblems {
@@ -786,7 +794,7 @@ func statsUpdater2() error {
 			//log.Println(oldAttempt)
 			if oldAttempt.Verdict == "OK" {
 				isSolved = true
-				adminlog.SendMessage(fmt.Sprintf("%s solved %s problem before.", users[userIndex].CFHandle, usedProblems[usedProblemIndex].CFID), config.Ctx, config.B)
+				adminlog.SendMessage(fmt.Sprintf("%s solved %s problem before. %s", users[userIndex].CFHandle, usedProblems[usedProblemIndex].CFID, oldAttempt.String()), config.Ctx, config.B)
 			}
 		}
 		if !isSolved && newAttempt.Verdict == "OK" {
@@ -923,32 +931,32 @@ func updateUsersData() {
 }
 
 func iAmDoneHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
-	err := statsUpdater2()
-	if err != nil && err.Error() == "TESTING" {
-		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: update.Message.Chat.ID,
-			ReplyParameters: &botModels.ReplyParameters{
-				ChatID:    update.Message.Chat.ID,
-				MessageID: update.Message.ID,
-			},
-			Text: "Ba'zi foydalanuvchilarning yechimlari testlash jarayonida, keyinroq urinib ko'ring.",
-		})
-		if err != nil {
-			adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
-		}
-		return
-	}
-	if err != nil {
-		//adminlog.SendMessage(err.Error(), ctx, b)
-	}
+	//err := statsUpdater2()
+	//if err != nil && err.Error() == "TESTING" {
+	//	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	//		ChatID: update.Message.Chat.ID,
+	//		ReplyParameters: &botModels.ReplyParameters{
+	//			ChatID:    update.Message.Chat.ID,
+	//			MessageID: update.Message.ID,
+	//		},
+	//		Text: "Ba'zi foydalanuvchilarning yechimlari testlash jarayonida, keyinroq urinib ko'ring.",
+	//	})
+	//	if err != nil {
+	//		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
+	//	}
+	//	return
+	//}
+	//if err != nil {
+	//	//adminlog.SendMessage(err.Error(), ctx, b)
+	//}
 
-	_, err = b.SendMessage(ctx, &bot.SendMessageParams{
+	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		ReplyParameters: &botModels.ReplyParameters{
 			ChatID:    update.Message.Chat.ID,
 			MessageID: update.Message.ID,
 		},
-		Text: "👍",
+		Text: "Hozircha bu buyruq ishlamayapti.",
 	})
 	if err != nil {
 		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)

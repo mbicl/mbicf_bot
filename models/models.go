@@ -54,7 +54,8 @@ type Attempt struct {
 
 func (a Attempt) String() string {
 	res := fmt.Sprintf(
-		"Attempt{\n\tUserID: %d\n\tCF Handle: %s\n\tUsedProblemID: %d\n\tUsedProblem CFID: %s\n\tVerdict: %s\n}",
+		"Attempt{\n\tID: %d\n\tUserID: %d\n\tCF Handle: %s\n\tUsedProblemID: %d\n\tUsedProblem CFID: %s\n\tVerdict: %s\n}",
+		a.ID,
 		a.UserID,
 		a.User.CFHandle,
 		a.UsedProblemID,
