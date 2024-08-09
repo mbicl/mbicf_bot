@@ -956,7 +956,7 @@ func iAmDoneHandler(ctx context.Context, b *bot.Bot, update *botModels.Update) {
 			ChatID:    update.Message.Chat.ID,
 			MessageID: update.Message.ID,
 		},
-		Text: "Hozircha bu buyruq ishlamayapti.",
+		Text: "Vaqtinchalik ishlamayapti",
 	})
 	if err != nil {
 		adminlog.SendMessage("Error sending message: "+err.Error(), ctx, b)
